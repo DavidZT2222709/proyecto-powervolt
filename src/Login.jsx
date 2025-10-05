@@ -48,112 +48,113 @@ const LoginPage = () => {
         </div>
 
         {/* Caja de formulario */}
-        <div className="bg-blue-500 text-white p-8 rounded-2xl w-80 shadow-lg">
-          {/* Pantalla de login */}
-          {view === "login" && (
-            <>
-              <h2 className="text-xl font-bold mb-6 text-center">
-                Inicio de sesión
-              </h2>
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    required
-                  />
-                </div>
+        <div className="bg-blue-500 text-white p-12 rounded-3xl w-[400px] h-[500px] shadow-lg flex flex-col items-center">
+          <h2 className="text-2xl font-bold mb-4 text-center">
+            Inicio de sesión
+          </h2>
+          <div className="flex-grow flex items-center w-full">
+            {view === "login" && (
+              <>
+                <form onSubmit={handleLogin} className="space-y-4 w-full flex flex-col items-center max-w-xs">
+                  <div className="relative w-full">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      required
+                    />
+                  </div>
 
-                <div className="relative mt-4">
-                  <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="password"
-                    placeholder="Contraseña"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    required
-                  />
-                </div>
+                  <div className="relative mt-4 w-full">
+                    <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <input
+                      type="password"
+                      placeholder="Contraseña"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      required
+                    />
+                  </div>
 
-                <div className="text-sm text-right">
+                  <div className="text-sm text-left w-full pl-0">
+                    <button
+                      type="button"
+                      onClick={() => setView("recover")}
+                      className="font-bold text-white underline hover:text-gray-200"
+                    >
+                      ¿Olvidó su contraseña?
+                    </button>
+                  </div>
+
                   <button
-                    type="button"
-                    onClick={() => setView("recover")}
-                    className="font-bold text-white underline hover:text-gray-200"
+                    type="submit"
+                    className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-2xl"
                   >
-                    ¿Olvidó su contraseña?
+                    Entrar
                   </button>
-                </div>
+                </form>
+              </>
+            )}
 
-                <button
-                  type="submit"
-                  className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-lg"
-                >
-                  Entrar
-                </button>
-              </form>
-            </>
-          )}
+            {/* Pantalla de recuperación */}
+            {view === "recover" && (
+              <>
+                <h2 className="text-xl font-bold mb-6 text-center">
+                  Recuperación de contraseña
+                </h2>
+                <form onSubmit={handlePasswordReset} className="space-y-4 w-full flex flex-col items-center max-w-xs">
+                  <div className="relative w-full">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-200 w-5 h-5" />
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      required
+                    />
+                  </div>
 
-          {/* Pantalla de recuperación */}
-          {view === "recover" && (
-            <>
-              <h2 className="text-xl font-bold mb-6 text-center">
-                Recuperación de contraseña
-              </h2>
-              <form onSubmit={handlePasswordReset} className="space-y-4">
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-200 w-5 h-5" />
-                  <input
-                    type="email"
-                    placeholder="Email"
-                    value={resetEmail}
-                    onChange={(e) => setResetEmail(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 rounded-lg text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-lg"
-                >
-                  Recuperar
-                </button>
-
-                <div className="text-sm text-center mt-4">
                   <button
-                    type="button"
-                    onClick={() => setView("login")}
-                    className="font-bold text-white underline hover:text-gray-200"
+                    type="submit"
+                    className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-2xl"
                   >
-                    Volver al inicio de sesión
+                    Recuperar
                   </button>
-                </div>
-              </form>
-            </>
-          )}
 
-          {/* Pantalla de éxito */}
-          {view === "success" && (
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <CheckCircle className="w-12 h-12 text-white" />
-              <p className="text-lg font-bold text-center">
-                Contraseña enviada al correo
-              </p>
-              <button
-                onClick={() => setView("login")}
-                className="bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 px-4 rounded-lg"
-              >
-                Volver al inicio de sesión
-              </button>
-            </div>
-          )}
+                  <div className="text-sm text-center mt-4 w-full">
+                    <button
+                      type="button"
+                      onClick={() => setView("login")}
+                      className="font-bold text-white underline hover:text-gray-200"
+                    >
+                      Volver al inicio de sesión
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {/* Pantalla de éxito */}
+            {view === "success" && (
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <CheckCircle className="w-12 h-12 text-white" />
+                <p className="text-lg font-bold text-center">
+                  Contraseña enviada al correo
+                </p>
+                <button
+                  onClick={() => setView("login")}
+                  className="bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 px-4 rounded-2xl"
+                >
+                  Volver al inicio de sesión
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
