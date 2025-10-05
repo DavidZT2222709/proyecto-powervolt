@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-route
 import { Mail, Key, CheckCircle } from "lucide-react";
 import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
 import UserDashboard from "./components/dashboard/worker/UserDashboard";
+import InventoryPanel from "./components/InventoryPanel";
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
@@ -167,6 +168,7 @@ const Login = () => {
         <Route path="/" element={<LoginPage />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/worker" element={<UserDashboard />} />
+        <Route path="/inventario" element={<InventoryPanel />} />
       </Routes>
     </Router>
   );

@@ -10,6 +10,8 @@ import {
   ShieldCheck,
   MapPin,
   LogOut,
+  ClipboardList,
+  ShoppingCart,
   BarChart3,
   TrendingUp,
   TrendingDown
@@ -42,24 +44,24 @@ function AdminDashboard() {
         </div>
 
         <nav className="flex-1 p-4 space-y-3">
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          <buttom href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <LayoutDashboard size={18} /> Dashboard
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          </buttom>
+          <buttom href="#" onClick={() => navigate("/inventario")} className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <Package size={18} /> Inventario
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          </buttom>
+          <buttom href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <Users size={18} /> Usuarios
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          </buttom>
+          <buttom href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <History size={18} /> Historial
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          </buttom>
+          <buttom href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <ShieldCheck size={18} /> Garantías
-          </a>
-          <a href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
+          </buttom>
+          <buttom href="#" className="flex items-center gap-3 hover:bg-blue-500 p-2 rounded-lg transition">
             <MapPin size={18} /> Sucursales
-          </a>
+          </buttom>
         </nav>
 
         <button
@@ -124,7 +126,9 @@ function AdminDashboard() {
         {/* LISTAS Y GRÁFICA */}
         <div className="grid grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <h3 className="font-bold mb-3 text-gray-700">Top productos más vendidos</h3>
+            <h3 className="font-bold mb-3 text-gray-700">
+              <ShoppingCart /> Top productos más vendidos
+            </h3>
             <ul className="space-y-2">
               <li className="flex justify-between">
                 <span>Falco R32 - GSP D</span> <span className="font-bold">45</span>
@@ -139,7 +143,9 @@ function AdminDashboard() {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <h3 className="font-bold mb-3 text-gray-700">Top productos con menor stock</h3>
+            <h3 className="font-bold mb-3 text-gray-700">
+               <Package /> Top productos con menor stock
+            </h3>
             <ul className="space-y-2">
               <li className="flex justify-between text-red-600">
                 <span>Falco R32 - GSP D</span> <span className="font-bold">3</span>
@@ -156,12 +162,16 @@ function AdminDashboard() {
 
         <div className="grid grid-cols-2 gap-6 mt-8">
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <h3 className="font-bold mb-4 text-gray-700">Porcentaje de ventas por marca</h3>
+            <h3 className="font-bold mb-4 text-gray-700">
+              <BarChart3 /> Porcentaje de ventas por marca
+            </h3>
             <Pie data={data} />
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <h3 className="font-bold mb-4 text-gray-700">Sugerencias de compra</h3>
+            <h3 className="font-bold mb-4 text-gray-700">
+              <ClipboardList /> Sugerencias de compra
+            </h3>
             <ul className="space-y-2">
               <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
                 Batería X
