@@ -1,25 +1,32 @@
 import React, { useState } from "react";
-import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useNavigate,
+  Outlet,
+} from "react-router-dom";
 import { Mail, Key, CheckCircle } from "lucide-react";
 import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
 import UserDashboard from "./components/dashboard/worker/UserDashboard";
 import InventoryPanel from "./components/InventoryPanel";
 
+// ---------------- LOGIN PAGE ----------------
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
-  const [view, setView] = useState("login"); // "login" | "recover" | "success"
+  const [view, setView] = useState("login");
   const navigate = useNavigate();
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // 🔹 Validación estática
+    // 🔹 Validación estática de credenciales
     if (email === "admin@fake.com" && password === "admin123") {
-      navigate("/admin"); // redirige al panel de administración
+      navigate("/admin");
     } else if (email === "worker@fake.com" && password === "worker123") {
-      navigate("/worker"); // redirige al panel de trabajador
+      navigate("/worker");
     } else {
       alert("❌ Credenciales incorrectas");
     }
@@ -27,149 +34,184 @@ const LoginPage = () => {
 
   const handlePasswordReset = (e) => {
     e.preventDefault();
-    console.log("Recuperar contraseña ->", resetEmail);
     setResetEmail("");
     setView("success");
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="flex flex-col md:flex-row items-center bg-white p-8 rounded-2xl shadow-xl">
-        {/* Logo */}
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-50">
+      <div className="flex flex-col md:flex-row items-center bg-white/60 backdrop-blur-xl border border-white/30 p-10 rounded-3xl shadow-2xl">
+        {/* LOGO */}
         <div className="flex flex-col items-center md:mr-10 mb-6 md:mb-0">
           <img
             src="/Logo.png"
             alt="Powerstock"
-            className="w-40 h-40 drop-shadow-[0_0_15px_rgba(59,130,246,0.7)]"
+            className="w-36 h-36 drop-shadow-[0_0_15px_rgba(59,130,246,0.6)] animate-pulse"
           />
-          <h1 className="drop-shadow-[0_0_5px_rgba(59,130,246,0.7)] mt-4 text-2xl font-bold italic text-blue-600">
+          <h1 className="mt-4 text-4xl font-extrabold italic text-blue-700 drop-shadow-sm">
             POWERSTOCK
           </h1>
         </div>
 
-        {/* Caja de formulario */}
-        <div className="bg-blue-500 text-white p-12 rounded-3xl w-[400px] h-[500px] shadow-lg flex flex-col items-center">
-          <h2 className="text-2xl font-bold mb-4 text-center">
-            Inicio de sesión
-          </h2>
-          <div className="flex-grow flex items-center w-full">
-            {view === "login" && (
-              <>
-                <form onSubmit={handleLogin} className="space-y-4 w-full flex flex-col items-center max-w-xs">
-                  <div className="relative w-full">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        {/* FORMULARIOS */}
+        <div className="bg-white/90 backdrop-blur-md rounded-3xl p-12 w-[480px] shadow-2xl border border-blue-100 text-gray-800">
+          {view === "login" && (
+            <>
+              <h2 className="text-3xl font-bold mb-8 text-center text-blue-700">
+                Inicio de sesión
+              </h2>
+              <form onSubmit={handleLogin} className="space-y-8 text-lg">
+                {/* EMAIL */}
+                <div>
+                  <label
+                    htmlFor="email"
+                    className="block text-blue-700 font-semibold mb-2 text-xl"
+                  >
+                    Correo electrónico
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-5 h-5" />
                     <input
+                      id="email"
                       type="email"
                       placeholder="Email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-400"
                       required
                     />
                   </div>
+                </div>
 
-                  <div className="relative mt-4 w-full">
-                    <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                {/* CONTRASEÑA */}
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="block text-blue-700 font-semibold mb-2 text-xl"
+                  >
+                    Contraseña
+                  </label>
+                  <div className="relative">
+                    <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-5 h-5" />
                     <input
+                      id="password"
                       type="password"
-                      placeholder="Contraseña"
+                      placeholder="Ingrese su contraseña"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-400"
                       required
                     />
                   </div>
+                </div>
 
-                  <div className="text-sm text-left w-full pl-0">
-                    <button
-                      type="button"
-                      onClick={() => setView("recover")}
-                      className="font-bold text-white underline hover:text-gray-200"
-                    >
-                      ¿Olvidó su contraseña?
-                    </button>
-                  </div>
-
+                {/* OLVIDÓ CONTRASEÑA */}
+                <div className="text-right">
                   <button
-                    type="submit"
-                    className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-2xl"
+                    type="button"
+                    onClick={() => setView("recover")}
+                    className="text-base font-semibold text-blue-600 hover:text-blue-800 underline"
                   >
-                    Entrar
+                    ¿Olvidó su contraseña?
                   </button>
-                </form>
-              </>
-            )}
+                </div>
 
-            {/* Pantalla de recuperación */}
-            {view === "recover" && (
-              <>
-                <h2 className="text-xl font-bold mb-6 text-center">
-                  Recuperación de contraseña
-                </h2>
-                <form onSubmit={handlePasswordReset} className="space-y-4 w-full flex flex-col items-center max-w-xs">
-                  <div className="relative w-full">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-200 w-5 h-5" />
+                <button
+                  type="submit"
+                  className="w-full py-4 text-xl bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold rounded-2xl hover:scale-[1.03] transition-transform duration-200"
+                >
+                  Ingresar
+                </button>
+              </form>
+            </>
+          )}
+
+          {/* RECUPERAR CONTRASEÑA */}
+          {view === "recover" && (
+            <>
+              <h2 className="text-3xl font-bold mb-8 text-center text-blue-700">
+                Recuperar contraseña
+              </h2>
+              <form onSubmit={handlePasswordReset} className="space-y-8 text-lg">
+                <div>
+                  <label
+                    htmlFor="resetEmail"
+                    className="block text-blue-700 font-semibold mb-2 text-xl"
+                  >
+                    Correo electrónico
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 w-5 h-5" />
                     <input
+                      id="resetEmail"
                       type="email"
-                      placeholder="Email"
+                      placeholder="Ingrese su correo"
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      className="w-full pl-10 pr-3 py-3 rounded-2xl text-black focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 shadow-sm focus:ring-2 focus:ring-blue-400"
                       required
                     />
                   </div>
+                </div>
 
-                  <button
-                    type="submit"
-                    className="w-full bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 rounded-2xl"
-                  >
-                    Recuperar
-                  </button>
-
-                  <div className="text-sm text-center mt-4 w-full">
-                    <button
-                      type="button"
-                      onClick={() => setView("login")}
-                      className="font-bold text-white underline hover:text-gray-200"
-                    >
-                      Volver al inicio de sesión
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
-
-            {/* Pantalla de éxito */}
-            {view === "success" && (
-              <div className="flex flex-col items-center justify-center space-y-4">
-                <CheckCircle className="w-12 h-12 text-white" />
-                <p className="text-lg font-bold text-center">
-                  Contraseña enviada al correo
-                </p>
                 <button
-                  onClick={() => setView("login")}
-                  className="bg-blue-800 hover:bg-purple-800 text-white font-semibold py-2 px-4 rounded-2xl"
+                  type="submit"
+                  className="w-full py-4 text-xl bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold rounded-2xl hover:scale-[1.03] transition-transform duration-200"
                 >
-                  Volver al inicio de sesión
+                  Recuperar
                 </button>
-              </div>
-            )}
-          </div>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setView("login")}
+                    className="text-base font-semibold text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Volver al inicio de sesión
+                  </button>
+                </div>
+              </form>
+            </>
+          )}
+
+          {/* ÉXITO */}
+          {view === "success" && (
+            <div className="flex flex-col items-center justify-center space-y-6 py-8">
+              <CheckCircle className="w-14 h-14 text-blue-600" />
+              <p className="text-xl font-semibold text-gray-700 text-center">
+                Contraseña enviada al correo
+              </p>
+              <button
+                onClick={() => setView("login")}
+                className="px-8 py-3 text-lg bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold rounded-2xl hover:scale-[1.03] transition-transform duration-200"
+              >
+                Volver al inicio
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-// ✅ Envolvemos todo en el Router aquí mismo
+// ---------------- RUTAS ANIDADAS ----------------
 const Login = () => {
   return (
     <Router>
       <Routes>
+        {/* Página principal de login */}
         <Route path="/" element={<LoginPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/worker" element={<UserDashboard />} />
-        <Route path="/inventario" element={<InventoryPanel />} />
+
+        {/* DASHBOARD ADMIN */}
+        <Route path="/admin" element={<AdminDashboard />}>
+          <Route path="inventario" element={<InventoryPanel />} />
+        </Route>
+
+        {/* DASHBOARD WORKER */}
+        <Route path="/worker" element={<UserDashboard />}>
+          <Route path="inventario" element={<InventoryPanel />} />
+        </Route>
       </Routes>
     </Router>
   );
