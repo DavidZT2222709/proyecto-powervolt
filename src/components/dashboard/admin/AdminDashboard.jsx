@@ -1,12 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Pie } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend
-} from "chart.js";
+import Chart from "chart.js/auto";
 import {
   LayoutDashboard,
   Package,
@@ -20,7 +15,6 @@ import {
   TrendingDown
 } from "lucide-react";
 
-ChartJS.register(ArcElement, Tooltip, Legend);
 
 function AdminDashboard() {
   const navigate = useNavigate();

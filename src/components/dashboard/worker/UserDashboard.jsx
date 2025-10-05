@@ -1,11 +1,6 @@
 import React from "react";
 import { Pie } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend
-} from "chart.js";
+import Chart from "chart.js/auto";
 import {
   Home,
   Package,
@@ -18,7 +13,6 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-ChartJS.register(ArcElement, Tooltip, Legend);
 
 function UserDashboard() {
   const navigate = useNavigate();
