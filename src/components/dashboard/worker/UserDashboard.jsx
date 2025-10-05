@@ -6,113 +6,172 @@ import {
   Tooltip,
   Legend
 } from "chart.js";
+import {
+  Home,
+  Package,
+  ClipboardList,
+  LogOut,
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  ShoppingCart
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 function UserDashboard() {
-  // Ejemplo datos pie
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    navigate("/"); // 🔹 Redirige al login
+  };
+
   const data = {
     labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
     datasets: [
       {
         data: [35, 30, 20, 15],
-        backgroundColor: ["#2563eb", "#facc15", "#22c55e", "#a855f7"]
-      }
-    ]
+        backgroundColor: ["#2563eb", "#facc15", "#22c55e", "#a855f7"],
+      },
+    ],
   };
 
   return (
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-60 bg-blue-700 text-white flex flex-col">
-        <div className="p-4 font-bold text-xl border-b border-blue-500">
-          POWERSTOCK
+      <aside className="w-64 bg-blue-700 text-white flex flex-col shadow-lg">
+        <div className="p-5 text-center border-b border-blue-500">
+          <h1 className="text-2xl font-bold tracking-wide">⚡ POWERSTOCK</h1>
         </div>
-        <nav className="flex-1 p-4 space-y-4">
-          <a href="#" className="block hover:bg-blue-600 p-2 rounded">
-            Dashboard
+
+        <nav className="flex-1 p-4 space-y-3">
+          <a
+            href="#"
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition"
+          >
+            <Home size={20} /> Dashboard
           </a>
-          <a href="#" className="block hover:bg-blue-600 p-2 rounded">
-            Inventario
+          <a
+            href="#"
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition"
+          >
+            <Package size={20} /> Inventario
           </a>
-          <a href="#" className="block hover:bg-blue-600 p-2 rounded">
-            Garantías
+          <a
+            href="#"
+            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition"
+          >
+            <ClipboardList size={20} /> Garantías
           </a>
         </nav>
+
+        <div className="p-4 border-t border-blue-500">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 w-full justify-center p-2 rounded-lg transition"
+          >
+            <LogOut size={18} /> Cerrar Sesión
+          </button>
+        </div>
       </aside>
 
       {/* Contenido principal */}
-      <main className="flex-1 p-6">
+      <main className="flex-1 bg-gray-50 p-8">
         {/* Header */}
-        <header className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="font-medium">Pancho Perez</span>
-            <span className="bg-green-600 text-white px-2 py-1 rounded text-sm">
-              Empleado
-            </span>
-            <span className="bg-green-500 text-white px-2 py-1 rounded text-sm">
-              Sucursal #1
-            </span>
-            <button className="bg-red-600 text-white px-3 py-1 rounded">
-              Cerrar Sesión
-            </button>
+        <header className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              Panel de Usuario
+            </h1>
+            <p className="text-gray-500 text-sm">
+              Bienvenido al sistema de gestión PowerStock
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
+            <img
+              src="https://cdn-icons-png.flaticon.com/512/219/219983.png"
+              alt="User Avatar"
+              className="w-10 h-10 rounded-full"
+            />
+            <div className="text-right">
+              <p className="font-semibold text-gray-800">Pancho Perez</p>
+              <p className="text-sm text-gray-500">Empleado • Sucursal #1</p>
+            </div>
           </div>
         </header>
 
         {/* Tarjetas métricas */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded shadow text-center">
-            <h2 className="text-gray-600">Total productos registrados</h2>
-            <p className="text-2xl font-bold">3</p>
-            <p className="text-sm text-red-500">2 con stock bajo</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          {/* Productos */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-semibold">Productos registrados</h3>
+              <BarChart3 size={22} />
+            </div>
+            <p className="text-3xl font-bold">3</p>
+            <p className="text-sm opacity-90">2 con stock bajo</p>
           </div>
-          <div className="bg-white p-4 rounded shadow text-center">
-            <h2 className="text-gray-600">Movimientos de entrada</h2>
-            <p className="text-2xl font-bold">23</p>
-            <p className="text-sm text-green-500">Último registro</p>
+
+          {/* Entradas */}
+          <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-semibold">Movimientos de entrada</h3>
+              <TrendingUp size={22} />
+            </div>
+            <p className="text-3xl font-bold">23</p>
+            <p className="text-sm opacity-90">Último registro hace 1h</p>
           </div>
-          <div className="bg-white p-4 rounded shadow text-center">
-            <h2 className="text-gray-600">Movimientos de salida</h2>
-            <p className="text-2xl font-bold">23</p>
-            <p className="text-sm text-green-500">Último registro</p>
+
+          {/* Salidas */}
+          <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-semibold">Movimientos de salida</h3>
+              <TrendingDown size={22} />
+            </div>
+            <p className="text-3xl font-bold">18</p>
+            <p className="text-sm opacity-90">Último registro hace 30min</p>
           </div>
         </div>
 
-        {/* Contenido abajo */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* Top productos */}
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-bold mb-2">Top productos más vendidos</h3>
-            <ul className="space-y-2">
+        {/* Top productos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+            <h3 className="font-bold mb-3 flex items-center gap-2 text-blue-700">
+              <ShoppingCart /> Top productos más vendidos
+            </h3>
+            <ul className="space-y-2 text-gray-700">
               <li className="flex justify-between">
-                <span>Falco r32 - gsp D</span>
+                <span>Falco R32 - GSP D</span>
                 <span className="font-bold">45</span>
               </li>
               <li className="flex justify-between">
-                <span>Mac r32 - gsp D</span>
+                <span>Mac R32 - GSP D</span>
                 <span className="font-bold">30</span>
               </li>
               <li className="flex justify-between">
-                <span>Rocket r32 - gsp D</span>
+                <span>Rocket R32 - GSP D</span>
                 <span className="font-bold">24</span>
               </li>
             </ul>
           </div>
 
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-bold mb-2">Top productos con menor stock</h3>
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+            <h3 className="font-bold mb-3 flex items-center gap-2 text-red-600">
+              <Package /> Top productos con menor stock
+            </h3>
             <ul className="space-y-2">
               <li className="flex justify-between text-red-600">
-                <span>Falco r32 - gsp D</span>
+                <span>Falco R32 - GSP D</span>
                 <span className="font-bold">3</span>
               </li>
               <li className="flex justify-between text-red-600">
-                <span>Mac r32 - gsp D</span>
+                <span>Mac R32 - GSP D</span>
                 <span className="font-bold">2</span>
               </li>
               <li className="flex justify-between text-red-600">
-                <span>Rocket r32 - gsp D</span>
+                <span>Rocket R32 - GSP D</span>
                 <span className="font-bold">4</span>
               </li>
             </ul>
@@ -120,21 +179,26 @@ function UserDashboard() {
         </div>
 
         {/* Gráfica y sugerencias */}
-        <div className="grid grid-cols-2 gap-6 mt-6">
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-bold mb-4">Porcentaje de ventas por marca</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+            <h3 className="font-bold mb-4 flex items-center gap-2 text-blue-700">
+              <BarChart3 /> Porcentaje de ventas por marca
+            </h3>
             <Pie data={data} />
           </div>
-          <div className="bg-white p-4 rounded shadow">
-            <h3 className="font-bold mb-4">Sugerencias de compra</h3>
+
+          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+            <h3 className="font-bold mb-4 flex items-center gap-2 text-green-700">
+              <ClipboardList /> Sugerencias de compra
+            </h3>
             <ul className="space-y-2">
-              <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded">
+              <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
                 Batería X
               </li>
-              <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded">
+              <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
                 Batería Y
               </li>
-              <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded">
+              <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
                 Batería Z
               </li>
             </ul>

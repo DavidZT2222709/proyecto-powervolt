@@ -1,20 +1,24 @@
 import React, { useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import { Mail, Key, CheckCircle } from "lucide-react";
+import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
+import UserDashboard from "./components/dashboard/worker/UserDashboard";
 
-const Login = ({ onLoginSuccess }) => {
+const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [resetEmail, setResetEmail] = useState("");
   const [view, setView] = useState("login"); // "login" | "recover" | "success"
+  const navigate = useNavigate();
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // 🔹 Validación simulada con correos falsos
+    // 🔹 Validación estática
     if (email === "admin@fake.com" && password === "admin123") {
-      onLoginSuccess("admin"); // Va al AdminDashboard
+      navigate("/admin"); // redirige al panel de administración
     } else if (email === "worker@fake.com" && password === "worker123") {
-      onLoginSuccess("worker"); // Va al UserDashboard
+      navigate("/worker"); // redirige al panel de trabajador
     } else {
       alert("❌ Credenciales incorrectas");
     }
@@ -24,7 +28,7 @@ const Login = ({ onLoginSuccess }) => {
     e.preventDefault();
     console.log("Recuperar contraseña ->", resetEmail);
     setResetEmail("");
-    setView("success"); // Mostrar pantalla de éxito
+    setView("success");
   };
 
   return (
@@ -152,6 +156,19 @@ const Login = ({ onLoginSuccess }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+// ✅ Envolvemos todo en el Router aquí mismo
+const Login = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/worker" element={<UserDashboard />} />
+      </Routes>
+    </Router>
   );
 };
 
