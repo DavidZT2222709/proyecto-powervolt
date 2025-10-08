@@ -9,7 +9,7 @@ import { Mail, Key, CheckCircle } from "lucide-react";
 import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
 import UserDashboard from "./components/dashboard/worker/UserDashboard";
 import InventoryPanel from "./components/InventoryPanel";
-
+ 
 // ---------------- LOGIN PAGE ----------------
 const LoginPage = () => {
   const [email, setEmail] = useState("");
