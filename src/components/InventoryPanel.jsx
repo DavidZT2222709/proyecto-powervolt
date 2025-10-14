@@ -91,10 +91,6 @@ const InventoryPanel = () => {
     closeModal();
   };
 
-  const handleDelete = (id) => {
-    setProducts(products.filter((p) => p.id !== id));
-    closeModal();
-  };
 
   const handleQuickEntry = (e) => {
     e.preventDefault();
