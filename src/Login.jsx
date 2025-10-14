@@ -212,7 +212,7 @@ const LoginPage = () => {
 // ---------------- RUTAS ANIDADAS ----------------
 const Login = () => {
   return (
-    <Router>
+    <Router basename='/'>
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/admin" element={<AdminDashboard />}>
