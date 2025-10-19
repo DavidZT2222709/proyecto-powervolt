@@ -4,11 +4,13 @@ import {
   Package,
   FileDown,
   Edit,
-  Trash2,
-  Plus,
+  ArrowBigDown,
+  ArrowBigUp,
   X,
   CheckCircle,
 } from "lucide-react";
+
+
 
 const InventoryPanel = () => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
@@ -80,7 +82,15 @@ const InventoryPanel = () => {
 
   const openModal = (type, product = null) => {
     setModal({ open: true, type, product });
-    if (type === "edit" && product) setNewProduct(product);
+    if (type === "edit" && product) {
+      setNewProduct({
+        ...product, // Copia todos los valores del producto existente
+        sucursal: product.sucursal, // Fija el valor de sucursal al original
+        imagen: product.imagen || "", // Mantiene la imagen como URL o vacía
+      });
+    } else if (type === "add") {
+      setNewProduct({ caja: "", amperaje: "", polaridad: "", voltaje: "", stock: "", imagen: "", marca: "", sucursal: "" });
+    }
     if (type === "addfast" && product) {
       setQuickEntry({
         cantidad: "",
@@ -105,7 +115,7 @@ const InventoryPanel = () => {
     formData.append('voltaje', parseInt(newProduct.voltaje, 10) || 0);
     formData.append('stock', parseInt(newProduct.stock, 10) || 0);
     formData.append('marca', parseInt(newProduct.marca, 10) || 0);
-    formData.append('sucursal', parseInt(newProduct.sucursal, 10) || 0);
+    // No agregar formData.append('sucursal', ...) en modo edit
 
     if (newProduct.imagen && newProduct.imagen instanceof File) {
       formData.append('imagen', newProduct.imagen);
@@ -115,8 +125,11 @@ const InventoryPanel = () => {
     let method = "POST";
 
     if (modal.type === "edit") {
-      url += `${modal.product.id}/`;
+      url += `${modal.product.id}`;
       method = "PUT";
+      // En modo edit, solo enviamos los campos que se pueden modificar
+    } else if (modal.type === "add") {
+      formData.append('sucursal', parseInt(newProduct.sucursal, 10) || 0); // Solo para agregar
     }
 
     try {
@@ -137,9 +150,7 @@ const InventoryPanel = () => {
         setProducts(products.map((p) => (p.id === data.id ? data : p)));
       }
 
-      // Forzar recarga de todos los productos para asegurar que la imagen se muestre
       await fetchProducts();
-
       closeModal();
     } catch (error) {
       console.error(`Error ${modal.type === "add" ? "creating" : "updating"} product:`, error);
@@ -155,6 +166,26 @@ const InventoryPanel = () => {
       generarHistorial: quickEntry.generarHistorial,
     });
     closeModal();
+  };
+
+  const handleDelete = async (productId) => {
+    if (window.confirm("¿Estás seguro de eliminar este producto?")) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/productos/${productId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+
+        // Actualiza el estado eliminando el producto
+        setProducts(products.filter((p) => p.id !== productId));
+        closeModal();
+      } catch (error) {
+        console.error("Error deleting product:", error);
+      }
+    }
   };
 
   return (
@@ -225,23 +256,23 @@ const InventoryPanel = () => {
                     </span>
                   </div>
                   <div className="relative group flex items-center justify-center">
-                    <Plus
+                    <ArrowBigUp
                       size={22}
                       className="text-green-600 hover:text-green-800 cursor-pointer transition"
                       onClick={() => openModal("addfast", p)}
                     />
                     <span className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
-                      AddFast
+                      Entrada de producto rapida
                     </span>
                   </div>
                   <div className="relative group flex items-center justify-center">
-                    <Trash2
-                      size={20}
+                    <ArrowBigDown
+                      size={22}
                       className="text-red-600 hover:text-red-800 cursor-pointer transition"
                       onClick={() => openModal("deletefast", p)}
                     />
                     <span className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
-                      DeleteFast
+                      Salida de producto rapida
                     </span>
                   </div>
                 </td>
@@ -331,7 +362,7 @@ const InventoryPanel = () => {
                       type="submit"
                       className="bg-[#00C853] hover:bg-[#00B44A] text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-transform hover:scale-[1.02]"
                     >
-                      <CheckCircle size={20} /> Generar entrada
+                      <CheckCircle size={20} /> Generar entrada de producto
                     </button>
                   </div>
                 </form>
@@ -340,132 +371,125 @@ const InventoryPanel = () => {
 
             {/* Modal para agregar/editar producto */}
             {(modal.type === "add" || modal.type === "edit") && (
-              <>
-                <h2 className="text-xl font-semibold mb-4">
-                  {modal.type === "add" ? "Agregar producto" : "Editar producto"}
-                </h2>
-                <form onSubmit={handleSave} className="space-y-3">
-                  <div>
-                    <label className="block text-gray-700 font-medium">Marca</label>
-                    <select
-                      name="marca"
-                      value={newProduct.marca}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    >
-                      <option value="">Seleccionar marca...</option>
-                      {marcas.map((marca) => (
-                        <option key={marca.id} value={marca.id}>
-                          {marca.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Sucursal</label>
-                    <select
-                      name="sucursal"
-                      value={newProduct.sucursal}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    >
-                      <option value="">Seleccionar sucursal...</option>
-                      {sucursales.map((sucursal) => (
-                        <option key={sucursal.id} value={sucursal.id}>
-                          {sucursal.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Caja</label>
-                    <input
-                      name="caja"
-                      value={newProduct.caja}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Amperaje</label>
-                    <input
-                      name="amperaje"
-                      type="number"
-                      value={newProduct.amperaje}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Polaridad</label>
-                    <select
-                      name="polaridad"
-                      value={newProduct.polaridad}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    >
-                      <option value="">Seleccionar...</option>
-                      <option value="Iz">Iz</option>
-                      <option value="De">De</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Voltaje</label>
-                    <input
-                      name="voltaje"
-                      type="number"
-                      value={newProduct.voltaje}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Stock</label>
-                    <input
-                      name="stock"
-                      type="number"
-                      value={newProduct.stock}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-gray-700 font-medium">Imagen</label>
-                    <input
-                      type="file"
-                      name="imagen"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        setNewProduct((prev) => ({ ...prev, imagen: file }));
-                      }}
-                      className="w-full border rounded-lg p-2 mt-1"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-3 pt-3">
+            <>
+              <h2 className="text-xl font-semibold mb-4">
+                {modal.type === "add" ? "Agregar producto" : "Editar producto"}
+              </h2>
+              <form onSubmit={handleSave} className="space-y-3">
+                <div>
+                  <label className="block text-gray-700 font-medium">Marca</label>
+                  <select
+                    name="marca"
+                    value={newProduct.marca}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  >
+                    <option value="">Seleccionar marca...</option>
+                    {marcas.map((marca) => (
+                      <option key={marca.id} value={marca.id}>
+                        {marca.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* Eliminamos el <div> de Sucursal completamente */}
+                <div>
+                  <label className="block text-gray-700 font-medium">Caja</label>
+                  <input
+                    name="caja"
+                    value={newProduct.caja}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium">Amperaje</label>
+                  <input
+                    name="amperaje"
+                    type="number"
+                    value={newProduct.amperaje}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium">Polaridad</label>
+                  <select
+                    name="polaridad"
+                    value={newProduct.polaridad}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  >
+                    <option value="">Seleccionar...</option>
+                    <option value="Iz">Iz</option>
+                    <option value="De">De</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium">Voltaje</label>
+                  <input
+                    name="voltaje"
+                    type="number"
+                    value={newProduct.voltaje}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium">Stock</label>
+                  <input
+                    name="stock"
+                    type="number"
+                    value={newProduct.stock}
+                    onChange={handleChange}
+                    className="w-full border rounded-lg p-2 mt-1"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-medium">Imagen</label>
+                  <input
+                    type="file"
+                    name="imagen"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      setNewProduct((prev) => ({ ...prev, imagen: file }));
+                    }}
+                    className="w-full border rounded-lg p-2 mt-1"
+                  />
+                </div>
+                <div className="flex justify-end gap-3 pt-3">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Guardar
+                  </button>
+                  {modal.type === "edit" && (
                     <button
                       type="button"
-                      onClick={closeModal}
-                      className="bg-gray-300 px-4 py-2 rounded-lg hover:bg-gray-400"
+                      onClick={() => handleDelete(modal.product.id)}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
                     >
-                      Cancelar
+                      Eliminar
                     </button>
-                    <button
-                      type="submit"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                    >
-                      Guardar
-                    </button>
-                  </div>
-                </form>
-              </>
-            )}
+                  )}
+                </div>
+              </form>
+            </>
+          )}
 
             {modal.type === "deletefast" && (
               <>
@@ -534,7 +558,7 @@ const InventoryPanel = () => {
                       type="submit"
                       className="bg-[#D50000] hover:bg-[#C00000] text-white px-6 py-3 rounded-lg font-semibold flex items-center gap-2 transition-transform hover:scale-[1.02]"
                     >
-                      <Trash2 size={20} /> Confirmar eliminación
+                      <ArrowBigDown size={22} /> Confirmar salida de producto
                     </button>
                     </div>
                   </form>
