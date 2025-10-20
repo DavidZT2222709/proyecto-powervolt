@@ -189,7 +189,7 @@ const InventoryPanel = () => {
   };
 
   return (
-    <div className="bg-gray-50 p-6 rounded-2xl shadow-sm">
+    <div className="rounded-2xl shadow-sm">
       {/* Encabezado */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE INVENTARIO</h1>
@@ -217,20 +217,20 @@ const InventoryPanel = () => {
 
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-blue-100 text-left text-gray-700">
-              <th className="p-2">Imagen</th>
-              <th className="p-2">Marca</th>
-              <th className="p-2">Caja</th>
-              <th className="p-2">Polaridad</th>
-              <th className="p-2">Stock</th>
-              <th className="p-2">Amperaje</th>
+            <tr className="bg-blue-100 text-gray-700">
+              <th className="p-2 text-center">Imagen</th>
+              <th className="p-2 text-center">Marca</th>
+              <th className="p-2 text-center">Caja</th>
+              <th className="p-2 text-center">Polaridad</th>
+              <th className="p-2 text-center">Stock</th>
+              <th className="p-2 text-center">Amperaje</th>
               <th className="p-2 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {products.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50 border-b">
-                <td className="p-2">
+              <tr key={p.id} className="hover:bg-gray-50 border-b h-12">
+                <td className="p-2 align-middle flex justify-center items-center">
                   {p.imagen && (
                     <img
                       src={p.imagen}
@@ -239,42 +239,44 @@ const InventoryPanel = () => {
                     />
                   )}
                 </td>
-                <td className="p-2">{p.marca_nombre}</td>
-                <td className="p-2">{p.caja}</td>
-                <td className="p-2">{p.polaridad}</td>
-                <td className="p-2">{p.stock}</td>
-                <td className="p-2">{p.amperaje}</td>
-                <td className="p-2 text-center flex justify-center gap-3">
-                  <div className="relative group flex items-center justify-center">
-                    <Edit
-                      size={20}
-                      className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
-                      onClick={() => openModal("edit", p)}
-                    />
-                    <span className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
-                      Editar
-                    </span>
-                  </div>
-                  <div className="relative group flex items-center justify-center">
-                    <ArrowBigUp
-                      size={22}
-                      className="text-green-600 hover:text-green-800 cursor-pointer transition"
-                      onClick={() => openModal("addfast", p)}
-                    />
-                    <span className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
-                      Entrada de producto rapida
-                    </span>
-                  </div>
-                  <div className="relative group flex items-center justify-center">
-                    <ArrowBigDown
-                      size={22}
-                      className="text-red-600 hover:text-red-800 cursor-pointer transition"
-                      onClick={() => openModal("deletefast", p)}
-                    />
-                    <span className="absolute bottom-7 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
-                      Salida de producto rapida
-                    </span>
-                  </div>
+                <td className="p-2 align-middle text-center">{p.marca_nombre}</td>
+                <td className="p-2 align-middle text-center">{p.caja}</td>
+                <td className="p-2 align-middle text-center">{p.polaridad}</td>
+                <td className="p-2 align-middle text-center">{p.stock}</td>
+                <td className="p-2 align-middle text-center">{p.amperaje}</td>
+                <td className="p-2 align-middle text-center">
+                  <div className="flex justify-center items-center gap-3 h-full">
+                    <div className="relative group">
+                      <Edit
+                        size={20}
+                        className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
+                        onClick={() => openModal("edit", p)}
+                      />
+                      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
+                        Editar
+                      </span>
+                    </div>
+                    <div className="relative group">
+                      <ArrowBigUp
+                        size={20}
+                        className="text-green-600 hover:text-green-800 cursor-pointer transition"
+                        onClick={() => openModal("addfast", p)}
+                      />
+                      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
+                        Entrada de producto rapida
+                      </span>
+                    </div>
+                    <div className="relative group">
+                      <ArrowBigDown
+                        size={20}
+                        className="text-red-600 hover:text-red-800 cursor-pointer transition"
+                        onClick={() => openModal("deletefast", p)}
+                      />
+                      <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-black/90 text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 whitespace-nowrap pointer-events-none shadow-lg transition-all duration-200">
+                        Salida de producto rapida
+                      </span>
+                    </div>
+                  </div>  
                 </td>
               </tr>
             ))}
@@ -585,7 +587,7 @@ const InventoryPanel = () => {
                   </thead>
                   <tbody>
                     {products.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50 border-b">
+                      <tr key={p.id} className="hover:bg-gray-50 border-b ">
                         <td className="p-2">{`${p.marca_nombre} ${p.caja} ${p.polaridad}`}</td>
                         <td className="p-2">{p.stock}</td>
                         <td className="p-2">
