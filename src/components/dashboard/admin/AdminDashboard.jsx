@@ -18,6 +18,9 @@ import {
 
 import InventoryPanel from "../../InventoryPanel.jsx";
 import UserManagement from "./UserManagement.jsx";
+import HistoryPanel from "./HistoryPanel";
+import WarrantiesPanel from './WarrantiesPanel.jsx';
+
 
 function AdminDashboard() {
   // Detectar si hay un hash en la URL (#/admin/usuarios, etc.)
@@ -257,6 +260,8 @@ function AdminDashboard() {
 
         {activeView === "inventario" && <InventoryPanel />}
         {activeView === "usuarios" && <UserManagement />}
+        {activeView === "historial" && <HistoryPanel />}
+        {activeView === "garantias" && <WarrantiesPanel />}
       </main>
     </div>
   );

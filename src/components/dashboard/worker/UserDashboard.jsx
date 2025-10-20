@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate, Outlet } from "react-router-dom";
+import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import { Pie } from "react-chartjs-2";
 import Chart from "chart.js/auto";
 import {
@@ -11,13 +11,15 @@ import {
   TrendingUp,
   TrendingDown,
   ShoppingCart,
+  Clock,
 } from "lucide-react";
 
 function UserDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
-    navigate("/"); // 🔹 Redirige al login
+    navigate("/"); // regresar al login
   };
 
   const data = {
@@ -30,35 +32,57 @@ function UserDashboard() {
     ],
   };
 
+  const isActive = (path) => location.pathname === path;
+
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
+      {/* ===== Sidebar ===== */}
       <aside className="w-64 bg-blue-700 text-white flex flex-col shadow-lg">
         <div className="p-5 text-center border-b border-blue-500">
           <h1 className="text-2xl font-bold tracking-wide">⚡ POWERSTOCK</h1>
         </div>
 
-        <nav className="flex-1 p-4 space-y-3">
-          {/* DASHBOARD */}
+        <nav className="flex-1 p-4 space-y-2">
           <button
             onClick={() => navigate("/worker")}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition w-full text-left"
+            className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition ${
+              isActive("/worker") ? "bg-blue-600" : "hover:bg-blue-600"
+            }`}
           >
             <Home size={20} /> Dashboard
           </button>
 
-          {/* INVENTARIO */}
           <button
             onClick={() => navigate("/worker/inventario")}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition w-full text-left"
+            className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition ${
+              isActive("/worker/inventario")
+                ? "bg-blue-600"
+                : "hover:bg-blue-600"
+            }`}
           >
             <Package size={20} /> Inventario
           </button>
 
-          {/* GARANTÍAS */}
+          {/* 🔹 Historial (sube arriba de Garantías) */}
+          <button
+            onClick={() => navigate("/worker/historial")}
+            className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition ${
+              isActive("/worker/historial")
+                ? "bg-blue-600"
+                : "hover:bg-blue-600"
+            }`}
+          >
+            <Clock size={20} /> Historial
+          </button>
+
+          {/* 🔹 Garantías (ahora queda debajo del historial) */}
           <button
             onClick={() => navigate("/worker/garantias")}
-            className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-600 transition w-full text-left"
+            className={`flex items-center gap-3 p-3 rounded-lg w-full text-left transition ${
+              isActive("/worker/garantias")
+                ? "bg-blue-600"
+                : "hover:bg-blue-600"
+            }`}
           >
             <ClipboardList size={20} /> Garantías
           </button>
@@ -74,16 +98,16 @@ function UserDashboard() {
         </div>
       </aside>
 
-      {/* Contenido principal */}
+      {/* ===== Contenido Principal ===== */}
       <main className="flex-1 bg-gray-50 p-8 overflow-y-auto">
-        {/* 👇 Aquí se renderiza dinámicamente el InventoryPanel u otros subpaneles */}
+        {/* 📌 Aquí se renderizan los subcomponentes de rutas */}
         <Outlet />
 
-        {/* Mostrar Dashboard principal solo si NO hay subruta */}
+        {/* Dashboard visible solo en la ruta base /worker */}
         {!location.pathname.includes("/inventario") &&
-          !location.pathname.includes("/garantias") && (
+          !location.pathname.includes("/garantias") &&
+          !location.pathname.includes("/historial") && (
             <>
-              {/* Header */}
               <header className="flex justify-between items-center mb-8">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800">
@@ -109,107 +133,73 @@ function UserDashboard() {
                 </div>
               </header>
 
-              {/* Tarjetas métricas */}
+              {/* Métricas */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-                {/* Productos */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold">Productos registrados</h3>
-                    <BarChart3 size={22} />
-                  </div>
-                  <p className="text-3xl font-bold">3</p>
-                  <p className="text-sm opacity-90">2 con stock bajo</p>
-                </div>
-
-                {/* Entradas */}
-                <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold">Movimientos de entrada</h3>
-                    <TrendingUp size={22} />
-                  </div>
-                  <p className="text-3xl font-bold">23</p>
-                  <p className="text-sm opacity-90">Último registro hace 1h</p>
-                </div>
-
-                {/* Salidas */}
-                <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-semibold">Movimientos de salida</h3>
-                    <TrendingDown size={22} />
-                  </div>
-                  <p className="text-3xl font-bold">18</p>
-                  <p className="text-sm opacity-90">Último registro hace 30min</p>
-                </div>
+                <MetricCard
+                  title="Productos registrados"
+                  value="3"
+                  subtitle="2 con stock bajo"
+                  color="from-blue-600 to-blue-500"
+                  icon={<BarChart3 size={22} />}
+                />
+                <MetricCard
+                  title="Movimientos de entrada"
+                  value="23"
+                  subtitle="Último registro hace 1h"
+                  color="from-green-500 to-emerald-600"
+                  icon={<TrendingUp size={22} />}
+                />
+                <MetricCard
+                  title="Movimientos de salida"
+                  value="18"
+                  subtitle="Último registro hace 30min"
+                  color="from-red-500 to-pink-600"
+                  icon={<TrendingDown size={22} />}
+                />
               </div>
 
               {/* Top productos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                  <h3 className="font-bold mb-3 flex items-center gap-2 text-blue-700">
-                    <ShoppingCart /> Top productos más vendidos
-                  </h3>
-                  <ul className="space-y-2 text-gray-700">
-                    <li className="flex justify-between">
-                      <span>Falco R32 - GSP D</span>
-                      <span className="font-bold">45</span>
-                    </li>
-                    <li className="flex justify-between">
-                      <span>Mac R32 - GSP D</span>
-                      <span className="font-bold">30</span>
-                    </li>
-                    <li className="flex justify-between">
-                      <span>Rocket R32 - GSP D</span>
-                      <span className="font-bold">24</span>
-                    </li>
-                  </ul>
-                </div>
+                <Card title="Top productos más vendidos" icon={<ShoppingCart />}>
+                  <TopList
+                    items={[
+                      ["Falco R32 - GSP D", "45"],
+                      ["Mac R32 - GSP D", "30"],
+                      ["Rocket R32 - GSP D", "24"],
+                    ]}
+                  />
+                </Card>
 
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                  <h3 className="font-bold mb-3 flex items-center gap-2 text-red-600">
-                    <Package /> Top productos con menor stock
-                  </h3>
-                  <ul className="space-y-2">
-                    <li className="flex justify-between text-red-600">
-                      <span>Falco R32 - GSP D</span>
-                      <span className="font-bold">3</span>
-                    </li>
-                    <li className="flex justify-between text-red-600">
-                      <span>Mac R32 - GSP D</span>
-                      <span className="font-bold">2</span>
-                    </li>
-                    <li className="flex justify-between text-red-600">
-                      <span>Rocket R32 - GSP D</span>
-                      <span className="font-bold">4</span>
-                    </li>
-                  </ul>
-                </div>
+                <Card title="Top productos con menor stock" icon={<Package />}>
+                  <TopList
+                    items={[
+                      ["Falco R32 - GSP D", "3"],
+                      ["Mac R32 - GSP D", "2"],
+                      ["Rocket R32 - GSP D", "4"],
+                    ]}
+                    red
+                  />
+                </Card>
               </div>
 
               {/* Gráfica y sugerencias */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                  <h3 className="font-bold mb-4 flex items-center gap-2 text-blue-700">
-                    <BarChart3 /> Porcentaje de ventas por marca
-                  </h3>
+                <Card title="Porcentaje de ventas por marca" icon={<BarChart3 />}>
                   <Pie data={data} />
-                </div>
+                </Card>
 
-                <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
-                  <h3 className="font-bold mb-4 flex items-center gap-2 text-green-700">
-                    <ClipboardList /> Sugerencias de compra
-                  </h3>
+                <Card title="Sugerencias de compra" icon={<ClipboardList />}>
                   <ul className="space-y-2">
-                    <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
-                      Batería X
-                    </li>
-                    <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
-                      Batería Y
-                    </li>
-                    <li className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition">
-                      Batería Z
-                    </li>
+                    {["Batería X", "Batería Y", "Batería Z"].map((b, i) => (
+                      <li
+                        key={i}
+                        className="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-200 transition"
+                      >
+                        {b}
+                      </li>
+                    ))}
                   </ul>
-                </div>
+                </Card>
               </div>
             </>
           )}
@@ -217,5 +207,44 @@ function UserDashboard() {
     </div>
   );
 }
+
+/* ====== Componentes auxiliares ====== */
+const MetricCard = ({ title, value, subtitle, color, icon }) => (
+  <div
+    className={`bg-gradient-to-r ${color} text-white p-5 rounded-xl shadow-md hover:shadow-lg transition transform hover:-translate-y-1`}
+  >
+    <div className="flex justify-between items-center mb-2">
+      <h3 className="font-semibold">{title}</h3>
+      {icon}
+    </div>
+    <p className="text-3xl font-bold">{value}</p>
+    <p className="text-sm opacity-90">{subtitle}</p>
+  </div>
+);
+
+const Card = ({ title, icon, children }) => (
+  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition">
+    <h3 className="font-bold mb-4 flex items-center gap-2 text-blue-700">
+      {icon} {title}
+    </h3>
+    {children}
+  </div>
+);
+
+const TopList = ({ items, red = false }) => (
+  <ul className="space-y-2">
+    {items.map(([name, qty], i) => (
+      <li
+        key={i}
+        className={`flex justify-between ${
+          red ? "text-red-600" : "text-gray-700"
+        }`}
+      >
+        <span>{name}</span>
+        <span className="font-bold">{qty}</span>
+      </li>
+    ))}
+  </ul>
+);
 
 export default UserDashboard;
