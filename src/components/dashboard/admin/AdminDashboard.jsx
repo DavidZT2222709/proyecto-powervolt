@@ -20,6 +20,8 @@ import InventoryPanel from "../../InventoryPanel.jsx";
 import UserManagement from "./UserManagement.jsx";
 import HistoryPanel from "./HistoryPanel";
 import WarrantiesPanel from './WarrantiesPanel.jsx';
+import BranchesPanel from "./BranchesPanel.jsx";
+
 
 
 function AdminDashboard() {
@@ -30,7 +32,8 @@ function AdminDashboard() {
     if (hash.includes("usuarios")) return "usuarios";
     if (hash.includes("historial")) return "historial";
     if (hash.includes("garantias")) return "garantias";
-    if (hash.includes("sucursales")) return "sucursales";
+    if (hash.includes("sucursales")) return "BranchesPanel";
+    
     return "dashboard";
   };
 
@@ -262,6 +265,7 @@ function AdminDashboard() {
         {activeView === "usuarios" && <UserManagement />}
         {activeView === "historial" && <HistoryPanel />}
         {activeView === "garantias" && <WarrantiesPanel />}
+        {activeView === "sucursales" && <BranchesPanel />}
       </main>
     </div>
   );
