@@ -145,19 +145,6 @@ function AdminDashboard() {
                   Bienvenido al sistema de gestión PowerStock
                 </p>
               </div>
-              <div className="flex items-center gap-4 bg-white shadow px-4 py-2 rounded-lg">
-                <div className="text-right">
-                  <h2 className="font-semibold text-gray-700">Pancho Perez</h2>
-                  <p className="text-sm text-gray-500">
-                    Administrador • Sucursal #1
-                  </p>
-                </div>
-                <img
-                  src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-                  alt="Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-blue-500"
-                />
-              </div>
             </header>
 
             {/* MÉTRICAS */}
