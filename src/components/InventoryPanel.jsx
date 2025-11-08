@@ -84,7 +84,7 @@ const InventoryPanel = () => {
     // Evita duplicados
     setSelectedInventory((prev) => {
       if (prev.some((p) => p.id === prod.id)) return prev;
-      return [...prev, { ...prod, conteo: 0, ventas: 0 }];
+      return [...prev, { ...prod, conteo: 0}];
     });
     // Saca el producto de los resultados de búsqueda
     setSearchResults((prev) => prev.filter((p) => p.id !== prod.id));
@@ -784,8 +784,9 @@ const InventoryPanel = () => {
 
                         <tbody>
                           {selectedInventory.map((it) => {
-                            const diff = it.conteo - it.ventas;
-                            const diffOk = diff === it.stock;
+                            const diff =
+                              (Number(it.stock) || 0) - (Number(it.conteo) || 0) - (Number(it.ventas) || 0);
+                            const isZero = diff === 0;
 
                             return (
                               <tr key={it.id} className="bg-white border-b last:border-b-0">
@@ -859,8 +860,8 @@ const InventoryPanel = () => {
                                 <td className="px-3 py-3 text-center align-middle">
                                   <div className="flex items-center justify-center gap-3">
                                     <span
-                                      className={`font-semibold ${diffOk ? "text-blue-600" : "text-red-600"}`}
-                                      title="Diferencia = Conteo - Ventas"
+                                      className={`font-semibold ${isZero ? "text-blue-600" : "text-red-600"}`}
+                                      title="Diferencia = Stock - Conteo - Ventas"
                                     >
                                       {diff}
                                     </span>
