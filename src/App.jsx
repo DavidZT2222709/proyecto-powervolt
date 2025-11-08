@@ -10,7 +10,7 @@ function App() {
         <Router>
         <Routes>
             {/* Rutas sin header */}
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<Login/>} />
 
             {/* Rutas con header (protegidas) */}
             <Route path="/" element={<Layout><AdminDashboard /></Layout>} /> {/* Raíz va a admin */}
