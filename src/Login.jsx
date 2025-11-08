@@ -1,16 +1,8 @@
+// Login.jsx
 import React, { useState } from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useNavigate,
-} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Mail, Key, CheckCircle } from "lucide-react";
-import AdminDashboard from "./components/dashboard/admin/AdminDashboard";
-import UserDashboard from "./components/dashboard/worker/UserDashboard";
-import InventoryPanel from "./components/InventoryPanel";
- 
-// ---------------- LOGIN PAGE ----------------
+
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +30,7 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 via-white to-blue-50">
       <div className="grid grid-cols-1 md:grid-cols-2 w-full max-w-6xl mx-auto items-center px-6">
-        {/* LOGO LADO IZQUIERDO */}
+        {/* LADO IZQUIERDO */}
         <div className="flex flex-col items-center justify-center text-center py-10">
           <img
             src="/Logo.png"
@@ -50,7 +42,7 @@ const LoginPage = () => {
           </h1>
         </div>
 
-        {/* FORMULARIO LADO DERECHO */}
+        {/* FORMULARIO */}
         <div className="flex justify-center md:justify-start">
           <div className="bg-white rounded-3xl shadow-2xl p-10 w-[400px] md:w-[460px] text-gray-800">
             {view === "login" && (
@@ -85,7 +77,7 @@ const LoginPage = () => {
                     </div>
                   </div>
 
-                  {/* CONTRASEÑA */}
+                  {/* PASSWORD */}
                   <div>
                     <label
                       htmlFor="password"
@@ -111,7 +103,7 @@ const LoginPage = () => {
                     </div>
                   </div>
 
-                  {/* OLVIDÓ CONTRASEÑA */}
+                  {/* OLVIDO CONTRASEÑA */}
                   <div className="text-right">
                     <button
                       type="button"
@@ -138,10 +130,7 @@ const LoginPage = () => {
                 <h2 className="text-3xl font-bold mb-8 text-center text-blue-700">
                   Recuperar contraseña
                 </h2>
-                <form
-                  onSubmit={handlePasswordReset}
-                  className="space-y-8 text-lg"
-                >
+                <form onSubmit={handlePasswordReset} className="space-y-8 text-lg">
                   <div>
                     <label
                       htmlFor="resetEmail"
@@ -209,21 +198,4 @@ const LoginPage = () => {
   );
 };
 
-// ---------------- RUTAS ANIDADAS ----------------
-const Login = () => {
-  return (
-    <Router basename='/'>
-      <Routes>
-        <Route path="/" element={<LoginPage />} />
-        <Route path="/admin" element={<AdminDashboard />}>
-          <Route path="inventario" element={<InventoryPanel />} />
-        </Route>
-        <Route path="/worker" element={<UserDashboard />}>
-          <Route path="inventario" element={<InventoryPanel />} />
-        </Route>
-      </Routes>
-    </Router>
-  );
-};
-
-export default Login;
+export default LoginPage;

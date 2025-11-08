@@ -17,22 +17,19 @@ import {
 } from "lucide-react";
 
 import InventoryPanel from "../../InventoryPanel.jsx";
-import UserManagement from "./UserManagement.jsx";
 import HistoryPanel from "./HistoryPanel.jsx";
 import WarrantiesPanel from './WarrantiesPanel.jsx';
-import BranchesPanel from "./BranchesPanel.jsx";
 
 
 
-function AdminDashboard() {
+function UserDashboard() {
   // Detectar si hay un hash en la URL (#/admin/usuarios, etc.)
   const getInitialView = () => {
     const hash = window.location.hash;
     if (hash.includes("inventario")) return "inventario";
-    if (hash.includes("usuarios")) return "usuarios";
     if (hash.includes("historial")) return "historial";
     if (hash.includes("garantias")) return "garantias";
-    if (hash.includes("sucursales")) return "BranchesPanel";
+
     
     return "dashboard";
   };
@@ -87,15 +84,6 @@ function AdminDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveView("usuarios")}
-            className={`flex items-center gap-3 p-2 rounded-lg transition w-full text-left ${
-              activeView === "usuarios" ? "bg-blue-500" : "hover:bg-blue-500"
-            }`}
-          >
-            <Users size={18} /> Usuarios
-          </button>
-
-          <button
             onClick={() => setActiveView("historial")}
             className={`flex items-center gap-3 p-2 rounded-lg transition w-full text-left ${
               activeView === "historial" ? "bg-blue-500" : "hover:bg-blue-500"
@@ -113,14 +101,6 @@ function AdminDashboard() {
             <ShieldCheck size={18} /> Garantías
           </button>
 
-          <button
-            onClick={() => setActiveView("sucursales")}
-            className={`flex items-center gap-3 p-2 rounded-lg transition w-full text-left ${
-              activeView === "sucursales" ? "bg-blue-500" : "hover:bg-blue-500"
-            }`}
-          >
-            <MapPin size={18} /> Sucursales
-          </button>
         </nav>
 
         <button
@@ -258,4 +238,4 @@ function AdminDashboard() {
   );
 }
 
-export default AdminDashboard;
+export default UserDashboard;

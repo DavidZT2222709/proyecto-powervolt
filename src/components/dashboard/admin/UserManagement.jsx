@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { PlusCircle, Edit, Trash2, X, CheckCircle, UserPlus } from "lucide-react";
+import { PlusCircle, Edit, Trash2, X } from "lucide-react";
 
 const UserManagement = () => {
   const [modal, setModal] = useState({ open: false, type: "", user: null });
@@ -29,6 +29,7 @@ const UserManagement = () => {
   ]);
 
   const [newUser, setNewUser] = useState({
+    id: null,
     nombre: "",
     correo: "",
     rol: "",
@@ -41,20 +42,31 @@ const UserManagement = () => {
 
   const openModal = (type, user = null) => {
     setModal({ open: true, type, user });
-    if (type === "edit" && user) setNewUser(user);
+    if (type === "edit" && user) {
+      // Clonamos el usuario para editarlo sin mutar el original
+      setNewUser({ ...user });
+    } else {
+      // Si es "add", se limpia el formulario
+      setNewUser({
+        id: null,
+        nombre: "",
+        correo: "",
+        rol: "",
+        estado: "Activo",
+      });
+    }
   };
 
   const closeModal = () => {
     setModal({ open: false, type: "", user: null });
-    setNewUser({ nombre: "", correo: "", rol: "", estado: "Activo" });
   };
 
   const handleSave = (e) => {
     e.preventDefault();
     if (modal.type === "add") {
-      setUsers([...users, { id: Date.now(), ...newUser }]);
+      setUsers([...users, { ...newUser, id: Date.now() }]);
     } else if (modal.type === "edit") {
-      setUsers(users.map((u) => (u.id === modal.user.id ? newUser : u)));
+      setUsers(users.map((u) => (u.id === newUser.id ? newUser : u)));
     }
     closeModal();
   };
@@ -101,9 +113,11 @@ const UserManagement = () => {
                 <td className="p-2">{u.nombre}</td>
                 <td className="p-2">{u.correo}</td>
                 <td className="p-2">{u.rol}</td>
-                <td className={`p-2 font-semibold ${
-                  u.estado === "Activo" ? "text-green-600" : "text-red-600"
-                }`}>
+                <td
+                  className={`p-2 font-semibold ${
+                    u.estado === "Activo" ? "text-green-600" : "text-red-600"
+                  }`}
+                >
                   {u.estado}
                 </td>
                 <td className="p-2 text-center flex justify-center gap-5">
@@ -126,11 +140,11 @@ const UserManagement = () => {
         </table>
       </div>
 
-      {/* MODALES */}
+      {/* Modal */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh] font-[Inter,sans-serif]">
-            {/* Cerrar */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh]">
+            {/* Botón cerrar */}
             <button
               onClick={closeModal}
               className="absolute top-3 right-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-2 transition"
