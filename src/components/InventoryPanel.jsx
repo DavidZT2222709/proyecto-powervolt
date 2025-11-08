@@ -25,6 +25,12 @@ const InventoryPanel = () => {
   const [marcas, setMarcas] = useState([]);
   const [sucursales, setSucursales] = useState([]);
 
+  // Estados para búsqueda y filtro en inventario
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMarca, setSelectedMarca] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+
+
   const [newProduct, setNewProduct] = useState({
     caja: "",
     amperaje: "",
@@ -68,6 +74,33 @@ const InventoryPanel = () => {
       console.error("Error fetching sucursales:", error);
     }
   };
+
+  // Buscar productos en tiempo real según texto y marca
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchTerm.trim() === "") {
+        setSearchResults([]); // no buscar si no hay texto
+        return;
+      }
+
+      try {
+        let url = `http://127.0.0.1:8000/api/productos/?q=${encodeURIComponent(searchTerm)}`;
+        if (selectedMarca) {
+          url += `&marca=${selectedMarca}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+        setSearchResults(data);
+      } catch (error) {
+        console.error("Error al buscar productos:", error);
+      }
+    };
+
+    const delayDebounce = setTimeout(fetchSearchResults, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm, selectedMarca]);
+
 
   // Efecto para cargar productos, marcas y sucursales al montar el componente
   useEffect(() => {
@@ -575,6 +608,65 @@ const InventoryPanel = () => {
                 <p className="text-gray-500 mb-4">
                   Realiza conteos físicos y ajusta las existencias.
                 </p>
+
+                {/* --- Barra de búsqueda y filtro --- */}
+                <div className="flex gap-3 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Buscar producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                  <select
+                    value={selectedMarca}
+                    onChange={(e) => setSelectedMarca(e.target.value)}
+                    className="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                  >
+                    <option value="">Filtrar por marca</option>
+                    {marcas.map((marca) => (
+                      // La API espera texto (ej: faico). Normalizamos a minúsculas y sin espacios en extremos.
+                      <option key={marca.id} value={marca.nombre.toLowerCase().trim()}>
+                        {marca.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* --- Resultados de búsqueda --- */}
+                {searchTerm.trim() !== "" && (
+                  <div
+                    className="mb-6 border rounded-lg overflow-y-auto"
+                    style={{ maxHeight: 228 }} // ~3 filas visibles (ajusta si quieres)
+                  >
+                    {searchResults.length === 0 ? (
+                      <div className="p-3 text-sm text-gray-500">Sin resultados</div>
+                    ) : (
+                      searchResults.map((prod) => (
+                        <div
+                          key={prod.id}
+                          className="flex justify-between items-center p-2 hover:bg-gray-50 transition border-b"
+                          style={{ minHeight: 72 }} // cada fila ~72px para que 3 filas ~216px
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={prod.imagen}
+                              alt={prod.nombre}
+                              className="w-12 h-12 rounded object-cover border"
+                            />
+                            <span className="font-medium text-gray-800">{prod.nombre}</span>
+                          </div>
+                          {/* Botón + estático */}
+                          <button type="button" className="text-blue-600 hover:text-blue-800 transition">
+                            <PlusCircle size={22} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* ---------------------------------------------------- */}
+
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-blue-100 text-gray-700 text-left">

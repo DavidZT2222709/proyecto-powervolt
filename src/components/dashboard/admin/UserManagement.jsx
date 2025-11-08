@@ -77,8 +77,8 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="bg-gray-50 p-6 rounded-2xl shadow-sm">
-      {/* Encabezado */}
+    <>
+      {/* Encabezado - FUERA del contenedor */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE USUARIOS</h1>
         <p className="text-gray-500">
@@ -86,7 +86,8 @@ const UserManagement = () => {
         </p>
       </div>
 
-      {/* Tabla */}
+      {/* === SIN contenedor bg-gray-50 === */}
+      {/* Botón agregar y tabla directamente */}
       <div className="bg-white rounded-2xl shadow-md p-6">
         <div className="flex justify-between mb-4">
           <button
@@ -121,13 +122,11 @@ const UserManagement = () => {
                   {u.estado}
                 </td>
                 <td className="p-2 text-center flex justify-center gap-5">
-                  {/* Editar */}
                   <Edit
                     size={20}
                     className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
                     onClick={() => openModal("edit", u)}
                   />
-                  {/* Eliminar */}
                   <Trash2
                     size={20}
                     className="text-red-600 hover:text-red-800 cursor-pointer transition"
@@ -140,11 +139,10 @@ const UserManagement = () => {
         </table>
       </div>
 
-      {/* Modal */}
+      {/* Modal - sin cambios */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh]">
-            {/* Botón cerrar */}
             <button
               onClick={closeModal}
               className="absolute top-3 right-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-2 transition"
@@ -152,7 +150,6 @@ const UserManagement = () => {
               <X size={20} />
             </button>
 
-            {/* Agregar / Editar */}
             {(modal.type === "add" || modal.type === "edit") && (
               <>
                 <h2 className="text-2xl font-bold mb-4 text-blue-700 text-center">
@@ -228,7 +225,6 @@ const UserManagement = () => {
               </>
             )}
 
-            {/* Eliminar */}
             {modal.type === "delete" && (
               <>
                 <h2 className="text-2xl font-bold mb-4 text-[#D50000] text-center">
@@ -257,7 +253,7 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
