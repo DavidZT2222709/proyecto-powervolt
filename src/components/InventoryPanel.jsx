@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   PlusCircle,
+  MinusCircle,
   Package,
   FileDown,
   Edit,
@@ -29,6 +30,8 @@ const InventoryPanel = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMarca, setSelectedMarca] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  // Productos agregados al listado de inventario (cajita)
+  const [selectedInventory, setSelectedInventory] = useState([]);
 
 
   const [newProduct, setNewProduct] = useState({
@@ -73,6 +76,75 @@ const InventoryPanel = () => {
     } catch (error) {
       console.error("Error fetching sucursales:", error);
     }
+  };
+
+  ///////////////////////////////////////////////
+  // Agregar desde el resultado de búsqueda a la cajita
+  const handleAddFromSearch = (prod) => {
+    // Evita duplicados
+    setSelectedInventory((prev) => {
+      if (prev.some((p) => p.id === prod.id)) return prev;
+      return [...prev, { ...prod, conteo: 0, ventas: 0 }];
+    });
+    // Saca el producto de los resultados de búsqueda
+    setSearchResults((prev) => prev.filter((p) => p.id !== prod.id));
+  };
+
+  // Helpers para editar valores en la cajita
+  const handleIncrement = (id) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, conteo: it.conteo + 1 } : it))
+    );
+
+  const handleDecrement = (id) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, conteo: Math.max(0, it.conteo - 1) } : it
+      )
+    );
+
+  const handleConteoInput = (id, value) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, conteo: Math.max(0, Number(value) || 0) } : it
+      )
+    );
+
+  const handleVentasChange = (id, value) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, ventas: Math.max(0, Number(value) || 0) } : it
+      )
+    );
+    ///////////////////////////////////////////////
+
+  
+  // Quitar un producto de la cajita y reponerlo en la lista de búsqueda si aplica
+  const handleRemoveFromInventory = (id) => {
+    setSelectedInventory((prev) => {
+      const removed = prev.find((p) => p.id === id);
+      const rest = prev.filter((p) => p.id !== id);
+
+      // Si hay texto de búsqueda activo, y el ítem coincide con el filtro actual, lo reponemos en resultados
+      if (removed && searchTerm.trim() !== "") {
+        const matchesText = removed.nombre
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+        const removedMarca = (removed.marca_nombre || "").toLowerCase().trim();
+        const matchesMarca = !selectedMarca || removedMarca === selectedMarca;
+
+        if (matchesText && matchesMarca) {
+          setSearchResults((prevResults) => {
+            // Evitar duplicado si ya está
+            if (prevResults.some((r) => r.id === removed.id)) return prevResults;
+            return [removed, ...prevResults];
+          });
+        }
+      }
+
+      return rest;
+    });
   };
 
   // Buscar productos en tiempo real según texto y marca
@@ -221,6 +293,11 @@ const InventoryPanel = () => {
     }
   };
 
+  // Derivados para no mostrar en búsqueda lo ya agregado a la cajita
+  const selectedIds = new Set(selectedInventory.map((i) => i.id));
+  const visibleResults = searchResults.filter((p) => !selectedIds.has(p.id));
+
+
   return (
     <div className="rounded-2xl shadow-sm">
       {/* Encabezado */}
@@ -320,7 +397,7 @@ const InventoryPanel = () => {
       {/* --- MODALES --- */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-2xl relative overflow-y-auto max-h-[90vh] font-[Inter,sans-serif]">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-3xl relative overflow-y-auto max-h-[90vh] font-[Inter,sans-serif]">
             {/* Botón cerrar */}
             <button
               onClick={closeModal}
@@ -637,16 +714,17 @@ const InventoryPanel = () => {
                 {searchTerm.trim() !== "" && (
                   <div
                     className="mb-6 border rounded-lg overflow-y-auto"
-                    style={{ maxHeight: 228 }} // ~3 filas visibles (ajusta si quieres)
+                    style={{ maxHeight: 228 }}
                   >
-                    {searchResults.length === 0 ? (
+                    {/* >>> 5) Usar visibleResults en lugar de searchResults */}
+                    {visibleResults.length === 0 ? (
                       <div className="p-3 text-sm text-gray-500">Sin resultados</div>
                     ) : (
-                      searchResults.map((prod) => (
+                      visibleResults.map((prod) => (
                         <div
                           key={prod.id}
                           className="flex justify-between items-center p-2 hover:bg-gray-50 transition border-b"
-                          style={{ minHeight: 72 }} // cada fila ~72px para que 3 filas ~216px
+                          style={{ minHeight: 72 }}
                         >
                           <div className="flex items-center gap-3">
                             <img
@@ -656,8 +734,14 @@ const InventoryPanel = () => {
                             />
                             <span className="font-medium text-gray-800">{prod.nombre}</span>
                           </div>
-                          {/* Botón + estático */}
-                          <button type="button" className="text-blue-600 hover:text-blue-800 transition">
+
+                          {/* >>> 5) Este botón ahora agrega a la cajita y saca el ítem de los resultados */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddFromSearch(prod)}
+                            className="text-blue-600 hover:text-blue-800 transition"
+                            title="Agregar al inventario"
+                          >
                             <PlusCircle size={22} />
                           </button>
                         </div>
@@ -667,36 +751,143 @@ const InventoryPanel = () => {
                 )}
                 {/* ---------------------------------------------------- */}
 
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-blue-100 text-gray-700 text-left">
-                      <th className="p-2">Batería</th>
-                      <th className="p-2">Stock</th>
-                      <th className="p-2">Conteo</th>
-                      <th className="p-2">Ventas</th>
-                      <th className="p-2">+/-</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50 border-b ">
-                        <td className="p-2">{`${p.marca_nombre} ${p.caja} ${p.polaridad}`}</td>
-                        <td className="p-2">{p.stock}</td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            defaultValue={p.stock}
-                            className="border rounded-lg p-1 w-20"
-                          />
-                        </td>
-                        <td className="p-2">{p.ventas || 0}</td>
-                        <td className="p-2 font-semibold text-blue-600">
-                          {p.stock - (p.ventas || 0)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+                {/*Cajita del inventario (scroll después de 5 ítems) */}
+                {/* Cajita del inventario (una sola tabla, header sticky, sin scroll horizontal) */}
+                {selectedInventory.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold mb-2">Listado de inventario</h3>
+
+                    <div className="rounded-lg border overflow-hidden">
+                      {/* Contenedor con scroll vertical y ocultando horizontal */}
+                      <div className="max-h-[340px] overflow-y-auto overflow-x-hidden">
+                        <table className="w-full text-sm table-fixed">
+                          {/* Proporciones parecidas a tu mock: menos ancho para “Baterías” */}
+                          <colgroup>
+                            <col style={{ width: "36%" }} /> {/* Baterías */}
+                            <col style={{ width: "12%" }} /> {/* Stock */}
+                            <col style={{ width: "22%" }} /> {/* Conteo */}
+                            <col style={{ width: "20%" }} /> {/* Ventas */}
+                            <col style={{ width: "10%" }} /> {/* + / - */}
+                          </colgroup>
+
+
+                        <thead className="bg-gray-100 sticky top-0 z-10">
+                          <tr>
+                            <th className="text-left px-4 py-3 text-base font-extrabold">Baterías</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Stock</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Conteo</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Ventas</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold whitespace-nowrap">+ / −</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {selectedInventory.map((it) => {
+                            const diff = it.conteo - it.ventas;
+                            const diffOk = diff === it.stock;
+
+                            return (
+                              <tr key={it.id} className="bg-white border-b last:border-b-0">
+                                {/* Baterías */}
+                                <td className="px-4 py-3 align-middle">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <img
+                                      src={it.imagen}
+                                      alt={it.nombre}
+                                      className="w-11 h-11 rounded object-cover border flex-shrink-0"
+                                    />
+                                    <div className="font-semibold truncate">{it.nombre}</div>
+                                  </div>
+                                </td>
+
+                                {/* Stock */}
+                                <td className="px-3 py-2.5 text-center align-middle">
+                                  <span className="font-extrabold text-[17px]">{it.stock}</span>
+                                </td>
+
+                                {/* Conteo -> + / − juntos + “píldora” azul con el valor */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="inline-flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleIncrement(it.id)}
+                                      className="text-green-600 hover:text-green-800"
+                                      title="Sumar"
+                                    >
+                                      <PlusCircle size={22} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDecrement(it.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Restar"
+                                    >
+                                      <MinusCircle size={22} />
+                                    </button>
+
+                                    {/* “Píldora” editable opcional: si la quieres editable, deja el input; si no, úsalo como display */}
+                                    <input
+                                      type="number"
+                                      value={it.conteo}
+                                      onChange={(e) => handleConteoInput(it.id, e.target.value)}
+                                      className="w-14 text-center font-extrabold text-white rounded-full px-2 py-1 bg-blue-600
+                                                appearance-none
+                                                [--tw-ring-offset-shadow:0_0_#0000] [--tw-ring-shadow:0_0_#0000]
+                                                [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                </td>
+
+                                {/* Ventas */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="inline-flex items-center gap-3">
+                                    <input
+                                      type="number"
+                                      value={it.ventas}
+                                      onChange={(e) => handleVentasChange(it.id, e.target.value)}
+                                      className="w-20 text-center rounded-lg px-2 py-1 border
+                                                appearance-none
+                                                [&::-webkit-outer-spin-button]:appearance-none
+                                                [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                </td>
+
+
+                                {/* + / - (diferencia) + eliminar */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="flex items-center justify-center gap-3">
+                                    <span
+                                      className={`font-semibold ${diffOk ? "text-blue-600" : "text-red-600"}`}
+                                      title="Diferencia = Conteo - Ventas"
+                                    >
+                                      {diff}
+                                    </span>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveFromInventory(it.id)}
+                                      className="text-red-600 hover:text-red-800 px-2 py-1 rounded"
+                                      title="Eliminar de inventario"
+                                    >
+                                      <X size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+
+                {/* ---------------------------------------------------- */}
+                
                 <div className="flex gap-3 mt-6">
                   <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
                     <FileDown size={18} /> Generar inventario
