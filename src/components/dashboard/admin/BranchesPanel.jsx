@@ -49,49 +49,50 @@ const BranchesPanel = () => {
   };
 
   return (
-    <div className="p-0">
-      {/* Contenedor gris claro general */}
-      <div className="bg-white rounded-2xl shadow-lg p-8">
-        {/* Header: título + descripción + botón */}
-        <div className="flex items-start justify-between gap-6 mb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900">Gestión de Sucursales</h1>
-            <p className="mt-2 text-gray-600">
-              Registro y administración de las sucursales registradas en el sistema.
-            </p>
-          </div>
+    <div className="rounded-2xl shadow-sm">
+      {/* ===== Encabezado ===== */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE SUCURSALES</h1>
+        <p className="text-gray-500">
+          Registro y administración de las sucursales registradas en el sistema.
+        </p>
+      </div>
 
-          <div className="self-start">
-            <button
-              onClick={() => handleOpenModal()}
-              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl shadow hover:bg-blue-700 transition"
-            >
-              <Plus size={16} /> Nueva sucursal
-            </button>
-          </div>
-        </div>
+      {/* ===== Botón principal fuera del listado ===== */}
+      <div className="flex justify-start mb-4">
+        <button
+          onClick={() => handleOpenModal()}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+        >
+          <Plus size={18} /> Nueva sucursal
+        </button>
+      </div>
 
-        {/* Card blanco con sombra */}
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          {branches.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No hay sucursales registradas.</p>
-          ) : (
-            branches.map((b, idx) => (
+      {/* ===== Contenedor del listado ===== */}
+      <div className="bg-white rounded-2xl shadow-md p-6">
+        {branches.length === 0 ? (
+          <p className="text-gray-500 text-center py-8">
+            No hay sucursales registradas.
+          </p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {branches.map((b) => (
               <div
                 key={b.id}
-                className={`flex items-center justify-between gap-4 py-4 ${
-                  idx < branches.length - 1 ? "border-b border-gray-100" : ""
-                }`}
+                className="flex items-center justify-between gap-4 py-4 hover:bg-gray-50 transition"
               >
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-lg bg-gray-50 border border-gray-100">
                     <Building2 size={34} className="text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{b.nombre}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {b.nombre}
+                    </h3>
                     <p className="text-sm text-gray-500">{b.direccion}</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Encargado:</span> {b.encargado}
+                      <span className="font-medium">Encargado:</span>{" "}
+                      {b.encargado}
                     </p>
                   </div>
                 </div>
@@ -99,7 +100,7 @@ const BranchesPanel = () => {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleOpenModal(b)}
-                    className="p-2 rounded-md hover:bg-gray-50 transition text-blue-600"
+                    className="p-2 rounded-md hover:bg-gray-100 transition text-blue-600"
                     title="Editar sucursal"
                   >
                     <Edit size={18} />
@@ -107,19 +108,19 @@ const BranchesPanel = () => {
 
                   <button
                     onClick={() => setDeleteModal(b.id)}
-                    className="p-2 rounded-md hover:bg-gray-50 transition text-red-600"
+                    className="p-2 rounded-md hover:bg-gray-100 transition text-red-600"
                     title="Eliminar sucursal"
                   >
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Modal Crear / Editar */}
+      {/* ===== Modal Crear / Editar ===== */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 relative">
@@ -146,22 +147,28 @@ const BranchesPanel = () => {
                     type="text"
                     placeholder="Nombre"
                     value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                    className="w-full border rounded-lg p-2"
+                    onChange={(e) =>
+                      setFormData({ ...formData, nombre: e.target.value })
+                    }
+                    className="w-full border rounded-lg p-2 focus:ring focus:ring-blue-200"
                   />
                   <input
                     type="text"
                     placeholder="Encargado"
                     value={formData.encargado}
-                    onChange={(e) => setFormData({ ...formData, encargado: e.target.value })}
-                    className="w-full border rounded-lg p-2"
+                    onChange={(e) =>
+                      setFormData({ ...formData, encargado: e.target.value })
+                    }
+                    className="w-full border rounded-lg p-2 focus:ring focus:ring-blue-200"
                   />
                   <input
                     type="text"
                     placeholder="Dirección"
                     value={formData.direccion}
-                    onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
-                    className="w-full md:col-span-2 border rounded-lg p-2"
+                    onChange={(e) =>
+                      setFormData({ ...formData, direccion: e.target.value })
+                    }
+                    className="w-full md:col-span-2 border rounded-lg p-2 focus:ring focus:ring-blue-200"
                   />
                 </div>
 
@@ -187,12 +194,14 @@ const BranchesPanel = () => {
         </div>
       )}
 
-      {/* Modal Confirmación Eliminar */}
+      {/* ===== Modal Confirmar Eliminación ===== */}
       {deleteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-6 text-center">
             <h3 className="text-lg font-semibold text-red-600 mb-2">Aviso</h3>
-            <p className="mb-4">¿Desea eliminar permanentemente esta sucursal?</p>
+            <p className="mb-4">
+              ¿Desea eliminar permanentemente esta sucursal?
+            </p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => handleDelete(deleteModal)}

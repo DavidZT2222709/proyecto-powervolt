@@ -1,4 +1,4 @@
-import { ArrowDownCircle, ArrowUpCircle, ClipboardList, User } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, User } from "lucide-react";
 
 const HistoryPanel = () => {
   const movimientos = [
@@ -52,39 +52,49 @@ const HistoryPanel = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-md">
-      <h1 className="text-3xl font-bold text-gray-800">HISTORIAL DE MOVIMIENTOS</h1>
-      <p className="text-gray-600 ">
-        Registro completo de inventario, entradas y salidas de inventario
-      </p>
+    <div className="rounded-2xl shadow-sm">
+      {/* Encabezado superior */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800">
+          HISTORIAL DE MOVIMIENTOS
+        </h1>
+        <p className="text-gray-500">
+          Registro completo de inventario, entradas y salidas de inventario.
+        </p>
+      </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-blue-100 text-gray-900 font-semibold text-sm">
-            <tr className="text-left text-gray-700">
-              <th className="px-4 py-3 border-b">Fecha</th>
-              <th className="px-4 py-3 border-b">Tipo</th>
-              <th className="px-4 py-3 border-b">Producto</th>
-              <th className="px-4 py-3 border-b">Cantidad</th>
-              <th className="px-4 py-3 border-b">Usuario</th>
-              <th className="px-4 py-3 border-b">Obs</th>
-            </tr>
-          </thead>
-          <tbody>
-            {movimientos.map((m, index) => (
-              <tr key={index} className="border-b hover:bg-gray-50">
-                <td className="px-4 py-3">{m.fecha}</td>
-                <td className="px-4 py-3">{getTipoBadge(m.tipo)}</td>
-                <td className="px-4 py-3">{m.producto}</td>
-                <td className="px-4 py-3 text-center">{m.cantidad}</td>
-                <td className="px-4 py-3 flex items-center gap-2 text-gray-700">
-                  <User size={16} /> {m.usuario}
-                </td>
-                <td className="px-4 py-3 text-gray-500">{m.obs}</td>
+      {/* Contenedor principal con la tabla */}
+      <div className="bg-white rounded-2xl shadow-md p-6">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-blue-100 text-gray-700">
+                <th className="p-2 text-left">Fecha</th>
+                <th className="p-2 text-left">Tipo</th>
+                <th className="p-2 text-left">Producto</th>
+                <th className="p-2 text-center">Cantidad</th>
+                <th className="p-2 text-left">Usuario</th>
+                <th className="p-2 text-left">Obs</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {movimientos.map((m, index) => (
+                <tr key={index} className="hover:bg-gray-50 border-b h-12">
+                  <td className="p-2 align-middle">{m.fecha}</td>
+                  <td className="p-2 align-middle">{getTipoBadge(m.tipo)}</td>
+                  <td className="p-2 align-middle">{m.producto}</td>
+                  <td className="p-2 align-middle text-center">
+                    {m.cantidad}
+                  </td>
+                  <td className="p-2 align-middle flex items-center gap-2 text-gray-700">
+                    <User size={16} /> {m.usuario}
+                  </td>
+                  <td className="p-2 align-middle text-gray-500">{m.obs}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

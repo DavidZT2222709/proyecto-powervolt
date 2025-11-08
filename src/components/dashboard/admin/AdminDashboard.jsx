@@ -122,13 +122,6 @@ function AdminDashboard() {
             <MapPin size={18} /> Sucursales
           </button>
         </nav>
-
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 justify-center bg-red-600 hover:bg-red-700 m-4 py-2 rounded-lg transition"
-        >
-          <LogOut size={18} /> Cerrar Sesión
-        </button>
       </aside>
 
       {/* MAIN CONTENT */}
