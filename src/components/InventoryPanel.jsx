@@ -18,7 +18,6 @@ const InventoryPanel = () => {
   const [quickEntry, setQuickEntry] = useState({
     cantidad: "",
     observacion: "",
-    generarHistorial: false,
   });
 
   // Datos ahora vendrán de la API
@@ -226,7 +225,6 @@ const InventoryPanel = () => {
       setQuickEntry({
         cantidad: "",
         observacion: "",
-        generarHistorial: false,
       });
     }
   };
@@ -288,16 +286,73 @@ const InventoryPanel = () => {
     }
   };
 
-  const handleQuickEntry = (e) => {
+  const handleQuickEntry = async (e) => {
     e.preventDefault();
-    console.log("Generar entrada rápida:", {
-      producto: modal.product,
-      cantidad: quickEntry.cantidad,
-      observacion: quickEntry.observacion,
-      generarHistorial: quickEntry.generarHistorial,
-    });
-    closeModal();
+
+    const producto = modal.product;
+    const cantidadNum = Number(quickEntry.cantidad) || 0;
+    if (!producto || cantidadNum <= 0) {
+      alert("Ingresa una cantidad válida.");
+      return;
+    }
+
+    // Confirmación
+    const ok = window.confirm("¿Confirmas la entrada rápida de stock?");
+    if (!ok) return;
+
+    try {
+      // Buscar el tipo de inventario "entrada"
+      const tipoEntrada = (tiposInventario || []).find(
+        (t) => (t.nombre || "").toLowerCase().trim() === "entrada"
+      );
+      const tipo_inventario_id = tipoEntrada?.id;
+
+      // Sucursal: temporalmente "Piedecuesta" (si no, toma la primera)
+      const piedecuesta = (sucursales || []).find(
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal para la entrada.");
+        return;
+      }
+
+      // Reglas de entrada rápida:
+      // ventas = 0, conteo = stock actual + cantidad ingresada
+      const payload = {
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: producto.id,
+        conteo: (Number(producto.stock) || 0) + cantidadNum,
+        ventas: 0,
+        comentario: quickEntry.observacion || "",
+        usuario: 1, // temporal
+      };
+
+      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), // << POST de un SOLO objeto
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
+
+      // Si tu API devuelve el registro/ok, puedes leerlo aquí:
+      // const created = await resp.json();
+
+      alert("✅ Entrada rápida generada correctamente.");
+      // Refrescar productos para ver el nuevo stock
+      await fetchProducts();
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Hubo un error generando la entrada rápida. Revisa la consola para más detalle.");
+    }
   };
+
 
   const handleDelete = async (productId) => {
     if (window.confirm("¿Estás seguro de eliminar este producto?")) {
@@ -575,22 +630,6 @@ const InventoryPanel = () => {
                       placeholder="Escriba una observación..."
                       className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-400 outline-none resize-none"
                     />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={quickEntry.generarHistorial}
-                      onChange={(e) =>
-                        setQuickEntry({
-                          ...quickEntry,
-                          generarHistorial: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 accent-green-600"
-                    />
-                    <label className="text-gray-700 font-medium">
-                      Generar historial
-                    </label>
                   </div>
                   <div className="flex justify-center pt-4">
                     <button
