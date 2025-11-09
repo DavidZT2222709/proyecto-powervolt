@@ -26,6 +26,16 @@ const InventoryPanel = () => {
   const [marcas, setMarcas] = useState([]);
   const [sucursales, setSucursales] = useState([]);
 
+  // Tipos de inventario (para elegir "inventario")
+  const [tiposInventario, setTiposInventario] = useState([]);
+
+  // Flujo de generación de inventario
+  const [precheckOpen, setPrecheckOpen] = useState(false);   // muestra panel previo si hay diferencias
+  const [precheckDiffs, setPrecheckDiffs] = useState([]);    // [{id, nombre, diff}]
+  const [genComment, setGenComment] = useState("");          // comentario general (si hay diferencias)
+  const [posting, setPosting] = useState(false);             // loading para POST
+
+
   // Estados para búsqueda y filtro en inventario
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMarca, setSelectedMarca] = useState("");
@@ -84,7 +94,7 @@ const InventoryPanel = () => {
     // Evita duplicados
     setSelectedInventory((prev) => {
       if (prev.some((p) => p.id === prod.id)) return prev;
-      return [...prev, { ...prod, conteo: 0}];
+      return [...prev, { ...prod, conteo: 0, ventas: 0 }];
     });
     // Saca el producto de los resultados de búsqueda
     setSearchResults((prev) => prev.filter((p) => p.id !== prod.id));
@@ -102,6 +112,10 @@ const InventoryPanel = () => {
         it.id === id ? { ...it, conteo: Math.max(0, it.conteo - 1) } : it
       )
     );
+
+  const calcDiff = (item) =>
+  (Number(item.stock) || 0) - (Number(item.conteo) || 0) - (Number(item.ventas) || 0);
+
 
   const handleConteoInput = (id, value) =>
     setSelectedInventory((prev) =>
@@ -173,14 +187,26 @@ const InventoryPanel = () => {
     return () => clearTimeout(delayDebounce);
   }, [searchTerm, selectedMarca]);
 
+  // Función para obtener tipos de inventario desde la API
+  const fetchTiposInventario = async () => {
+    try {
+      const resp = await fetch("http://localhost:8000/api/tipos-inventario/");
+      const data = await resp.json();
+      setTiposInventario(data);
+    } catch (e) {
+      console.error("Error fetching tipos inventario:", e);
+    }
+  };
 
   // Efecto para cargar productos, marcas y sucursales al montar el componente
   useEffect(() => {
     fetchProducts();
     fetchMarcas();
     fetchSucursales();
+    fetchTiposInventario();
   }, []);
 
+  
   const handleChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
   };
@@ -296,6 +322,96 @@ const InventoryPanel = () => {
   // Derivados para no mostrar en búsqueda lo ya agregado a la cajita
   const selectedIds = new Set(selectedInventory.map((i) => i.id));
   const visibleResults = searchResults.filter((p) => !selectedIds.has(p.id));
+
+  ///////////////////////////////////////////////////
+  //Al pulsar "Generar inventario": validar diferencias y abrir panel previo si aplica
+  const handleGenerateClick = () => {
+    if (selectedInventory.length === 0) {
+      alert("No hay productos en el listado de inventario.");
+      return;
+    }
+
+    const diffs = selectedInventory
+      .map(it => ({ id: it.id, nombre: it.nombre, diff: calcDiff(it) }))
+      .filter(x => x.diff !== 0);
+
+    if (diffs.length > 0) {
+      setPrecheckDiffs(diffs);
+      setGenComment("");      // comentario en blanco
+      setPrecheckOpen(true);  // abrimos panel de confirmación con comentario
+    } else {
+      // Sin diferencias => ir directo a confirmar y postear
+      confirmAndPost("");
+    }
+  };
+
+  //Confirmación y POST
+  const confirmAndPost = async (comentarioGeneral) => {
+    const ok = window.confirm("¿Está seguro de generar el inventario?");
+    if (!ok) return;
+
+    try {
+      setPosting(true);
+
+      // tipo_inventario: el que se llama "inventario"
+      const tipoInv = (tiposInventario || []).find(
+        t => (t.nombre || "").toLowerCase().trim() === "inventario"
+      );
+      const tipo_inventario_id = tipoInv ? tipoInv.id : undefined;
+
+      // sucursal: temporalmente "Piedecuesta"
+      const piedecuesta = (sucursales || []).find(
+        s => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      // Si no existe, usa la primera sucursal disponible como fallback
+      const sucursal_id = piedecuesta ? piedecuesta.id : (sucursales[0]?.id);
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
+        setPosting(false);
+        return;
+      }
+
+      // Usuario temporal = 1 (listo para cambiar a futuro)
+      const usuario_id = 1;
+
+      // POST por cada producto del listado
+      const url = "http://127.0.0.1:8000/inventarios/";
+      const requests = selectedInventory.map((it) => {
+        const payload = {
+          tipo_inventario_id,
+          sucursal_id,
+          producto_id: it.id,
+          conteo: Number(it.conteo) || 0,
+          ventas: Number(it.ventas) || 0,
+          comentario: comentarioGeneral || "",
+          usuario: usuario_id,
+        };
+        return fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(`Error ${r.status}: ${await r.text()}`);
+        });
+      });
+
+      await Promise.all(requests);
+
+      alert("Inventario generado exitosamente.");
+      // Limpia estados del flujo
+      setPrecheckOpen(false);
+      setPrecheckDiffs([]);
+      setGenComment("");
+      //mantener el modal abierto, dejar selectedInventory; si no, vacíalo:
+      // setSelectedInventory([]);
+    } catch (e) {
+      console.error(e);
+      alert("Hubo un error generando el inventario. Revisa la consola para más detalle.");
+    } finally {
+      setPosting(false);
+    }
+  };
 
 
   return (
@@ -784,9 +900,8 @@ const InventoryPanel = () => {
 
                         <tbody>
                           {selectedInventory.map((it) => {
-                            const diff =
-                              (Number(it.stock) || 0) - (Number(it.conteo) || 0) - (Number(it.ventas) || 0);
-                            const isZero = diff === 0;
+                            const diff = calcDiff(it);
+                            const isZero = diff === 0;  
 
                             return (
                               <tr key={it.id} className="bg-white border-b last:border-b-0">
@@ -885,14 +1000,70 @@ const InventoryPanel = () => {
                     </div>
                   </div>
                 )}
-
-
                 {/* ---------------------------------------------------- */}
+
+                {/* --- PRECHECK: solo visible si hay diferencias --- */}
+                {precheckOpen && (
+                  <div className="mt-4 border rounded-lg p-4 bg-orange-50">
+                    <h4 className="font-bold text-orange-800 mb-2">Se detectaron diferencias</h4>
+                    <p className="text-orange-700 mb-3 text-sm">
+                      Revisa las baterías con diferencia distinta de 0 o deja un comentario general explicando la causa.
+                    </p>
+
+                    <ul className="list-disc pl-6 mb-4 text-sm text-orange-900">
+                      {precheckDiffs.map(d => (
+                        <li key={d.id}>
+                          <span className="font-semibold">{d.nombre}</span>: diferencia {d.diff}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Comentario general (solo se pide si hay diferencias) */}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Comentario general
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={genComment}
+                      onChange={(e) => setGenComment(e.target.value)}
+                      placeholder="Describe brevemente la razón de las diferencias..."
+                      className="w-full border rounded-lg p-2 mb-3"
+                    />
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+                        onClick={() => setPrecheckOpen(false)}
+                      >
+                        Regresar al inventario
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={posting}
+                        className={`px-4 py-2 rounded-lg text-white
+                                    ${posting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                        onClick={() => confirmAndPost(genComment)}
+                      >
+                        {posting ? "Enviando..." : "Continuar y generar"}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
+                {/* ---------------------------------------------------- */}
                 <div className="flex gap-3 mt-6">
-                  <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
-                    <FileDown size={18} /> Generar inventario
+                  <button
+                    disabled={posting}
+                    onClick={handleGenerateClick}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-white
+                                ${posting ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                  >
+                    <FileDown size={18} />
+                    {posting ? "Generando..." : "Generar inventario"}
                   </button>
+
                   <button
                     onClick={closeModal}
                     className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
