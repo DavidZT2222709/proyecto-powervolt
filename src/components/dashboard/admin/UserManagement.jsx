@@ -115,8 +115,10 @@ const UserManagement = () => {
 
   const openModal = (type, user = null) => {
     setModal({ open: true, type, user });
-    setNewUser(
-      user || {
+    if (type === "edit" && user) {
+      setNewUser({ ...user });
+    } else {
+      setNewUser({
         id: null,
         nombre: "",
         username: "",
@@ -133,64 +135,80 @@ const UserManagement = () => {
   };
 
   return (
-    <>
-      {/* Encabezado - FUERA del contenedor */}
+    <div className="rounded-2xl shadow-sm">
+      {/* ===== Encabezado ===== */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE USUARIOS</h1>
-        <p className="text-gray-500">Administra las cuentas y roles del sistema PowerStock.</p>
+        <h1 className="text-3xl font-bold text-gray-800">
+          GESTIÓN DE USUARIOS
+        </h1>
+        <p className="text-gray-500">
+          Administra las cuentas y roles del sistema PowerStock.
+        </p>
       </div>
 
-      {/* === SIN contenedor bg-gray-50 === */}
-      {/* Botón agregar y tabla directamente */}
+      {/* ===== Contenedor principal ===== */}
       <div className="bg-white rounded-2xl shadow-md p-6">
-        <div className="flex justify-between mb-4">
+        {/* Botón de acción principal */}
+        <div className="flex justify-between items-center mb-4">
           <button
             onClick={() => openModal("add")}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
           >
             <PlusCircle size={18} /> Agregar usuario
           </button>
         </div>
 
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-blue-100 text-left text-gray-700">
-              <th className="p-2">Nombre</th>
-              <th className="p-2">Email</th>
-              <th className="p-2">Rol</th>
-              <th className="p-2">Teléfono</th>
-              <th className="p-2 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 border-b">
-                <td className="p-2">{u.nombre}</td>
-                <td className="p-2">{u.email}</td>
-                <td className="p-2">{rolesMap[String(u.rol)] || "Sin rol"}</td>
-                <td className="p-2">{u.numero_telefono}</td>
-                <td className="p-2 text-center flex justify-center gap-5">
-                  <Edit
-                    size={20}
-                    className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
-                    onClick={() => openModal("edit", u)}
-                  />
-                  <Trash2
-                    size={20}
-                    className="text-red-600 hover:text-red-800 cursor-pointer transition"
-                    onClick={() => openModal("delete", u)}
-                  />
-                </td>
+        {/* ===== Tabla ===== */}
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse">
+            <thead>
+              <tr className="bg-blue-100 text-gray-700">
+                <th className="p-2 text-left">Nombre</th>
+                <th className="p-2 text-left">Correo</th>
+                <th className="p-2 text-left">Rol</th>
+                <th className="p-2 text-left">Estado</th>
+                <th className="p-2 text-center">Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id} className="hover:bg-gray-50 border-b h-12">
+                  <td className="p-2 align-middle">{u.nombre}</td>
+                  <td className="p-2 align-middle">{u.correo}</td>
+                  <td className="p-2 align-middle">{u.rol}</td>
+                  <td
+                    className={`p-2 align-middle font-semibold ${
+                      u.estado === "Activo"
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {u.estado}
+                  </td>
+                  <td className="p-2 align-middle text-center flex justify-center gap-5">
+                    <Edit
+                      size={20}
+                      className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
+                      onClick={() => openModal("edit", u)}
+                    />
+                    <Trash2
+                      size={20}
+                      className="text-red-600 hover:text-red-800 cursor-pointer transition"
+                      onClick={() => openModal("delete", u)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Modal - sin cambios */}
+      {/* ===== Modal ===== */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh]">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md relative overflow-y-auto max-h-[90vh]">
+            {/* Botón cerrar */}
             <button
               onClick={closeModal}
               className="absolute top-3 right-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-2 transition"
@@ -201,45 +219,38 @@ const UserManagement = () => {
             {(modal.type === "add" || modal.type === "edit") && (
               <>
                 <h2 className="text-2xl font-bold mb-4 text-blue-700 text-center">
-                  {modal.type === "add" ? "Agregar Usuario" : "Editar Usuario"}
+                  {modal.type === "add"
+                    ? "Agregar Usuario"
+                    : "Editar Usuario"}
                 </h2>
 
                 <form onSubmit={handleSave} className="space-y-4">
                   <div>
-                    <label className="block text-gray-700 font-medium">Nombre</label>
+                    <label className="block text-gray-700 font-medium">
+                      Nombre
+                    </label>
                     <input
                       name="nombre"
                       value={newUser.nombre}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring focus:ring-blue-200"
                       required
                     />
                     {formErrors.nombre && <p className="text-red-600 text-sm mt-1">{formErrors.nombre}</p>}
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 font-medium">Email</label>
+                    <label className="block text-gray-700 font-medium">
+                      Correo
+                    </label>
                     <input
                       name="email"
                       type="email"
-                      value={newUser.email}
+                      value={newUser.correo}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring focus:ring-blue-200"
                       required
                     />
-                    {formErrors.email && <p className="text-red-600 text-sm mt-1">{formErrors.email}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-700 font-medium">Username</label>
-                    <input
-                      name="username"
-                      value={newUser.username}
-                      onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
-                    {formErrors.username && <p className="text-red-600 text-sm mt-1">{formErrors.username}</p>}
                   </div>
 
                   <div>
@@ -248,7 +259,7 @@ const UserManagement = () => {
                       name="rol_id"
                       value={newUser.rol_id || ""}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring focus:ring-blue-200"
                       required
                     >
                       <option value="">Seleccionar...</option>
@@ -261,14 +272,18 @@ const UserManagement = () => {
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 font-medium">Teléfono</label>
-                    <input
-                      name="numero_telefono"
-                      value={newUser.numero_telefono}
+                    <label className="block text-gray-700 font-medium">
+                      Estado
+                    </label>
+                    <select
+                      name="estado"
+                      value={newUser.estado}
                       onChange={handleChange}
-                      className="w-full border rounded-lg p-2 mt-1"
-                      required
-                    />
+                      className="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring focus:ring-blue-200"
+                    >
+                      <option value="Activo">Activo</option>
+                      <option value="Inactivo">Inactivo</option>
+                    </select>
                   </div>
 
                   {modal.type === "add" && (
@@ -307,9 +322,15 @@ const UserManagement = () => {
 
             {modal.type === "delete" && (
               <>
-                <h2 className="text-2xl font-bold mb-4 text-[#D50000] text-center">Eliminar usuario</h2>
+                <h2 className="text-2xl font-bold mb-4 text-red-600 text-center">
+                  Eliminar usuario
+                </h2>
                 <p className="text-center text-gray-600 mb-6">
-                  ¿Seguro que deseas eliminar al usuario <span className="font-semibold">{modal.user?.nombre}</span>?
+                  ¿Seguro que deseas eliminar al usuario{" "}
+                  <span className="font-semibold">
+                    {modal.user?.nombre}
+                  </span>
+                  ?
                 </p>
                 <div className="flex justify-center gap-4">
                   <button
@@ -320,7 +341,7 @@ const UserManagement = () => {
                   </button>
                   <button
                     onClick={() => handleDelete(modal.user.id)}
-                    className="bg-[#D50000] hover:bg-[#C00000] text-white px-6 py-2 rounded-lg flex items-center gap-2"
+                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg flex items-center gap-2"
                   >
                     <Trash2 size={18} /> Eliminar
                   </button>
