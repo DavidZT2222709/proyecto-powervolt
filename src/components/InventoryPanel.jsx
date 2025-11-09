@@ -355,16 +355,15 @@ const InventoryPanel = () => {
 
       // tipo_inventario: el que se llama "inventario"
       const tipoInv = (tiposInventario || []).find(
-        t => (t.nombre || "").toLowerCase().trim() === "inventario"
+        (t) => (t.nombre || "").toLowerCase().trim() === "inventario"
       );
       const tipo_inventario_id = tipoInv ? tipoInv.id : undefined;
 
       // sucursal: temporalmente "Piedecuesta"
       const piedecuesta = (sucursales || []).find(
-        s => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
       );
-      // Si no existe, usa la primera sucursal disponible como fallback
-      const sucursal_id = piedecuesta ? piedecuesta.id : (sucursales[0]?.id);
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
@@ -372,39 +371,46 @@ const InventoryPanel = () => {
         return;
       }
 
-      // Usuario temporal = 1 (listo para cambiar a futuro)
       const usuario_id = 1;
 
-      // POST por cada producto del listado
+      // 🔹 1) Enviar todos los productos en un solo POST (lista)
       const url = "http://127.0.0.1:8000/inventarios/";
-      const requests = selectedInventory.map((it) => {
-        const payload = {
-          tipo_inventario_id,
-          sucursal_id,
-          producto_id: it.id,
-          conteo: Number(it.conteo) || 0,
-          ventas: Number(it.ventas) || 0,
-          comentario: comentarioGeneral || "",
-          usuario: usuario_id,
-        };
-        return fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }).then(async (r) => {
-          if (!r.ok) throw new Error(`Error ${r.status}: ${await r.text()}`);
-        });
+      const payloadList = selectedInventory.map((it) => ({
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: it.id,
+        conteo: Number(it.conteo) || 0,
+        ventas: Number(it.ventas) || 0,
+        comentario: comentarioGeneral || "",
+        usuario: usuario_id,
+      }));
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadList),
       });
 
-      await Promise.all(requests);
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
 
-      alert("Inventario generado exitosamente.");
-      // Limpia estados del flujo
+      // 🔹 2) Leer respuesta para obtener el número de lote
+      const created = await resp.json();
+      const lote = created?.[0]?.lote_numero;
+
+      // 🔹 3) Mostrar mensaje indicando el lote
+      alert(`✅ Inventario generado exitosamente.\nLote #${lote}`);
+
+      // 🔹 4) Limpiar listado y recargar productos
+      setSelectedInventory([]);
+      await fetchProducts();
+
+      // Cerrar el modal de precheck si estaba abierto
       setPrecheckOpen(false);
       setPrecheckDiffs([]);
       setGenComment("");
-      //mantener el modal abierto, dejar selectedInventory; si no, vacíalo:
-      // setSelectedInventory([]);
+
     } catch (e) {
       console.error(e);
       alert("Hubo un error generando el inventario. Revisa la consola para más detalle.");
@@ -412,6 +418,7 @@ const InventoryPanel = () => {
       setPosting(false);
     }
   };
+
 
 
   return (
