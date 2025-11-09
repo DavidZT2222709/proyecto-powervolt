@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { PlusCircle, Edit, Trash2, X } from "lucide-react";
-import { getUsers, createUser, updateUser, deleteUser, getRoles } from "../../../api/usuarios"; 
+import { getUsers, createUser, updateUser, deleteUser, getRoles, toggleUserStatus } from "../../../api/usuarios"; 
 import toast from "react-hot-toast";
 
 const UserManagement = () => {
@@ -14,7 +14,8 @@ const UserManagement = () => {
     username: "",
     numero_telefono: "",
     rol_id: "",
-    password: ""
+    password: "",
+    is_active: true
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -72,7 +73,8 @@ const UserManagement = () => {
         email: newUser.email,
         numero_telefono: newUser.numero_telefono,
         rol_id: newUser.rol_id,
-        password: newUser.password
+        password: newUser.password,
+        is_active: true
       };
 
       if (modal.type === "edit" && !payload.password) delete payload.password;
@@ -124,6 +126,7 @@ const UserManagement = () => {
         rol_id: "",
         numero_telefono: "",
         password: "",
+    
       }
     );
   };
@@ -131,6 +134,25 @@ const UserManagement = () => {
   const closeModal = () => {
     setModal({ open: false, type: "", user: null });
   };
+const handleToggleEstado = async (id) => {
+  try {
+    await toggleUserStatus(id);
+    loadUsers();
+    toast.success("✅ Estado actualizado");
+  } catch (err) {
+    toast.error("❌ Error al cambiar estado");
+  }
+};
+
+const [search, setSearch] = useState("");
+
+const filteredUsers = users.filter(u =>
+  u.nombre.toLowerCase().includes(search.toLowerCase()) ||
+  u.email.toLowerCase().includes(search.toLowerCase()) ||
+  String(u.numero_telefono).includes(search)
+);
+
+
 
   return (
     <>
@@ -143,6 +165,43 @@ const UserManagement = () => {
       {/* === SIN contenedor bg-gray-50 === */}
       {/* Botón agregar y tabla directamente */}
       <div className="bg-white rounded-2xl shadow-md p-6">
+
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 gap-4">
+     
+
+
+            <div className="relative w-full max-w-xl  mb-4 group transition-all">
+              {/* 🔍 Icono lupa */}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5 text-gray-500 absolute left-3 top-2.5 transition-all group-focus-within:text-blue-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M21 21l-4.35-4.35M9.5 17A7.5 7.5 0 109.5 2a7.5 7.5 0 000 15z" />
+              </svg>
+
+              <input
+                type="text"
+                placeholder="Buscar usuario..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full bg-white border border-gray-300 rounded-xl py-2 pl-10 pr-10 text-gray-700 
+                  shadow-sm hover:shadow-md
+                  focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition-all duration-200"
+              />
+
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-2 text-gray-400 hover:text-red-500 transition"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
         <div className="flex justify-between mb-4">
           <button
             onClick={() => openModal("add")}
@@ -150,41 +209,74 @@ const UserManagement = () => {
           >
             <PlusCircle size={18} /> Agregar usuario
           </button>
+
         </div>
 
+        </div>
+
+
+
+
         <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-blue-100 text-left text-gray-700">
-              <th className="p-2">Nombre</th>
-              <th className="p-2">Email</th>
-              <th className="p-2">Rol</th>
-              <th className="p-2">Teléfono</th>
-              <th className="p-2 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50 border-b">
-                <td className="p-2">{u.nombre}</td>
-                <td className="p-2">{u.email}</td>
-                <td className="p-2">{rolesMap[String(u.rol)] || "Sin rol"}</td>
-                <td className="p-2">{u.numero_telefono}</td>
-                <td className="p-2 text-center flex justify-center gap-5">
-                  <Edit
-                    size={20}
-                    className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
-                    onClick={() => openModal("edit", u)}
-                  />
-                  <Trash2
-                    size={20}
-                    className="text-red-600 hover:text-red-800 cursor-pointer transition"
-                    onClick={() => openModal("delete", u)}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <thead>
+    <tr className="bg-blue-100 text-left text-gray-700">
+      <th className="p-2">Nombre</th>
+      <th className="p-2">Email</th>
+      <th className="p-2">Rol</th>
+      <th className="p-2">Teléfono</th>
+      <th className="p-2 text-center">Estado</th>
+      <th className="p-2 text-center">Acciones</th>
+    </tr>
+  </thead>
+
+  
+    <tbody>
+  {filteredUsers.map((u) => (
+
+      <tr key={u.id} className="hover:bg-gray-50 border-b">
+        <td className="p-2">{u.nombre}</td>
+        <td className="p-2">{u.email}</td>
+        <td className="p-2">{rolesMap[String(u.rol)] || "Sin rol"}</td>
+        <td className="p-2">{u.numero_telefono}</td>
+
+        {/* ✅ Columna estado */}
+        <td className="p-2 text-center">
+          <span
+            className={`px-3 py-1 rounded-full text-sm font-semibold ${
+              u.is_active
+                ? "bg-green-100 text-green-700"
+                : "bg-red-100 text-red-700"
+            }`}
+          >
+            {u.is_active ? "Activo" : "Inactivo"}
+          </span>
+        </td>
+
+        {/* ✅ Acciones (editar + activar/desactivar) */}
+        <td className="p-2 text-center flex justify-center gap-5">
+          <Edit
+            size={20}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
+            onClick={() => openModal("edit", u)}
+          />
+
+        <button
+          onClick={() => handleToggleEstado(u.id, u.is_active)}
+          className={`px-3 py-1 rounded-lg text-sm border transition ${
+            u.is_active
+              ? "text-red-600 border-red-600 hover:text-red-800 hover:border-red-800"
+              : "text-green-600 border-green-600 hover:text-green-800 hover:border-green-800"
+          }`}
+        >
+          {u.is_active ? "Desactivar" : "Activar"}
+        </button>
+
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
       </div>
 
       {/* Modal - sin cambios */}

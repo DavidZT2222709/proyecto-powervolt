@@ -81,3 +81,20 @@ export const getRoles = async () => {
   }
   return await res.json();
 };
+
+// Cambiar el estado activo/inactivo de un usuario
+
+export const toggleUserStatus = async (id) => {
+  const res = await fetchWithToken(`${API_URL}/usuarios/${id}/toggle_active/`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    console.error("Error al cambiar estado:", errorData);
+    throw new Error(errorData.detail || "Error al cambiar estado");
+  }
+
+  return await res.json();
+};
