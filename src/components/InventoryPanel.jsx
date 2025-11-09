@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   PlusCircle,
+  MinusCircle,
   Package,
   FileDown,
   Edit,
@@ -15,47 +16,193 @@ const InventoryPanel = () => {
   const [quickEntry, setQuickEntry] = useState({
     cantidad: "",
     observacion: "",
-    generarHistorial: false,
   });
 
-  // Datos simulados (más adelante se reemplazan con backend)
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      marca: "Faico",
-      caja: "32 850",
-      polaridad: "Iz",
-      stock: 23,
-      ventas: 8,
-      img: "https://cdn-icons-png.flaticon.com/512/1049/1049872.png",
-    },
-    {
-      id: 2,
-      marca: "Mac",
-      caja: "32 950",
-      polaridad: "D",
-      stock: 15,
-      ventas: 10,
-      img: "https://cdn-icons-png.flaticon.com/512/1049/1049872.png",
-    },
-    {
-      id: 3,
-      marca: "Rocket",
-      caja: "NS40 650",
-      polaridad: "I",
-      stock: 5,
-      ventas: 2,
-      img: "https://cdn-icons-png.flaticon.com/512/1049/1049872.png",
-    },
-  ]);
+  // Datos ahora vendrán de la API
+  const [products, setProducts] = useState([]);
+  const [marcas, setMarcas] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
+
+  // Tipos de inventario (para elegir "inventario")
+  const [tiposInventario, setTiposInventario] = useState([]);
+
+  // Flujo de generación de inventario
+  const [precheckOpen, setPrecheckOpen] = useState(false);   // muestra panel previo si hay diferencias
+  const [precheckDiffs, setPrecheckDiffs] = useState([]);    // [{id, nombre, diff}]
+  const [genComment, setGenComment] = useState("");          // comentario general (si hay diferencias)
+  const [posting, setPosting] = useState(false);             // loading para POST
+
+
+  // Estados para búsqueda y filtro en inventario
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMarca, setSelectedMarca] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  // Productos agregados al listado de inventario (cajita)
+  const [selectedInventory, setSelectedInventory] = useState([]);
+
 
   const [newProduct, setNewProduct] = useState({
     marca: "",
     caja: "",
     polaridad: "",
     stock: "",
+    imagen: "",
+    marca: "",
+    sucursal: "",
   });
 
+  // Función para obtener productos desde la API
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/productos/");
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    }
+  };
+
+  // Función para obtener marcas desde la API
+  const fetchMarcas = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/marcas/");
+      const data = await response.json();
+      setMarcas(data);
+    } catch (error) {
+      console.error("Error fetching marcas:", error);
+    }
+  };
+
+  // Función para obtener sucursales desde la API
+  const fetchSucursales = async () => {
+    try {
+      const response = await fetch("http://localhost:8000/api/sucursales/");
+      const data = await response.json();
+      setSucursales(data);
+    } catch (error) {
+      console.error("Error fetching sucursales:", error);
+    }
+  };
+
+  ///////////////////////////////////////////////
+  // Agregar desde el resultado de búsqueda a la cajita
+  const handleAddFromSearch = (prod) => {
+    // Evita duplicados
+    setSelectedInventory((prev) => {
+      if (prev.some((p) => p.id === prod.id)) return prev;
+      return [...prev, { ...prod, conteo: 0, ventas: 0 }];
+    });
+    // Saca el producto de los resultados de búsqueda
+    setSearchResults((prev) => prev.filter((p) => p.id !== prod.id));
+  };
+
+  // Helpers para editar valores en la cajita
+  const handleIncrement = (id) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, conteo: it.conteo + 1 } : it))
+    );
+
+  const handleDecrement = (id) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, conteo: Math.max(0, it.conteo - 1) } : it
+      )
+    );
+
+  const calcDiff = (item) =>
+  (Number(item.stock) || 0) - (Number(item.conteo) || 0) - (Number(item.ventas) || 0);
+
+
+  const handleConteoInput = (id, value) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, conteo: Math.max(0, Number(value) || 0) } : it
+      )
+    );
+
+  const handleVentasChange = (id, value) =>
+    setSelectedInventory((prev) =>
+      prev.map((it) =>
+        it.id === id ? { ...it, ventas: Math.max(0, Number(value) || 0) } : it
+      )
+    );
+    ///////////////////////////////////////////////
+
+  
+  // Quitar un producto de la cajita y reponerlo en la lista de búsqueda si aplica
+  const handleRemoveFromInventory = (id) => {
+    setSelectedInventory((prev) => {
+      const removed = prev.find((p) => p.id === id);
+      const rest = prev.filter((p) => p.id !== id);
+
+      // Si hay texto de búsqueda activo, y el ítem coincide con el filtro actual, lo reponemos en resultados
+      if (removed && searchTerm.trim() !== "") {
+        const matchesText = removed.nombre
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+        const removedMarca = (removed.marca_nombre || "").toLowerCase().trim();
+        const matchesMarca = !selectedMarca || removedMarca === selectedMarca;
+
+        if (matchesText && matchesMarca) {
+          setSearchResults((prevResults) => {
+            // Evitar duplicado si ya está
+            if (prevResults.some((r) => r.id === removed.id)) return prevResults;
+            return [removed, ...prevResults];
+          });
+        }
+      }
+
+      return rest;
+    });
+  };
+
+  // Buscar productos en tiempo real según texto y marca
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (searchTerm.trim() === "") {
+        setSearchResults([]); // no buscar si no hay texto
+        return;
+      }
+
+      try {
+        let url = `http://127.0.0.1:8000/api/productos/?q=${encodeURIComponent(searchTerm)}`;
+        if (selectedMarca) {
+          url += `&marca=${selectedMarca}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+        setSearchResults(data);
+      } catch (error) {
+        console.error("Error al buscar productos:", error);
+      }
+    };
+
+    const delayDebounce = setTimeout(fetchSearchResults, 400);
+    return () => clearTimeout(delayDebounce);
+  }, [searchTerm, selectedMarca]);
+
+  // Función para obtener tipos de inventario desde la API
+  const fetchTiposInventario = async () => {
+    try {
+      const resp = await fetch("http://localhost:8000/api/tipos-inventario/");
+      const data = await resp.json();
+      setTiposInventario(data);
+    } catch (e) {
+      console.error("Error fetching tipos inventario:", e);
+    }
+  };
+
+  // Efecto para cargar productos, marcas y sucursales al montar el componente
+  useEffect(() => {
+    fetchProducts();
+    fetchMarcas();
+    fetchSucursales();
+    fetchTiposInventario();
+  }, []);
+
+  
   const handleChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
   };
@@ -67,7 +214,12 @@ const InventoryPanel = () => {
       setQuickEntry({
         cantidad: "",
         observacion: "",
-        generarHistorial: false,
+      });
+    }
+    if (type === "deletefast" && product) {
+      setQuickEntry({
+        cantidad: "",
+        observacion: "",
       });
     }
   };
@@ -92,16 +244,265 @@ const InventoryPanel = () => {
   };
 
 
-  const handleQuickEntry = (e) => {
+  const handleQuickEntry = async (e) => {
     e.preventDefault();
-    console.log("Generar entrada rápida:", {
-      producto: modal.product,
-      cantidad: quickEntry.cantidad,
-      observacion: quickEntry.observacion,
-      generarHistorial: quickEntry.generarHistorial,
-    });
-    closeModal();
+
+    const producto = modal.product;
+    const cantidadNum = Number(quickEntry.cantidad) || 0;
+    if (!producto || cantidadNum <= 0) {
+      alert("Ingresa una cantidad válida.");
+      return;
+    }
+
+    // Confirmación
+    const ok = window.confirm("¿Confirmas la entrada rápida de stock?");
+    if (!ok) return;
+
+    try {
+      // Buscar el tipo de inventario "entrada"
+      const tipoEntrada = (tiposInventario || []).find(
+        (t) => (t.nombre || "").toLowerCase().trim() === "entrada"
+      );
+      const tipo_inventario_id = tipoEntrada?.id;
+
+      // Sucursal: temporalmente "Piedecuesta" (si no, toma la primera)
+      const piedecuesta = (sucursales || []).find(
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal para la entrada.");
+        return;
+      }
+
+      // Reglas de entrada rápida:
+      // ventas = 0, conteo = stock actual + cantidad ingresada
+      const payload = {
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: producto.id,
+        conteo: (Number(producto.stock) || 0) + cantidadNum,
+        ventas: 0,
+        comentario: quickEntry.observacion || "",
+        usuario: 1, // temporal
+      };
+
+      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload), // << POST de un SOLO objeto
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
+
+      // Si tu API devuelve el registro/ok, puedes leerlo aquí:
+      // const created = await resp.json();
+
+      alert("✅ Entrada rápida generada correctamente.");
+      // Refrescar productos para ver el nuevo stock
+      await fetchProducts();
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Hubo un error generando la entrada rápida. Revisa la consola para más detalle.");
+    }
   };
+
+
+  const handleQuickDelete = async (e) => {
+    e.preventDefault();
+
+    const producto = modal.product;
+    const cantidadNum = Number(quickEntry.cantidad) || 0;
+    if (!producto || cantidadNum <= 0) {
+      alert("Ingresa una cantidad válida.");
+      return;
+    }
+
+    // Regla: ventas = stock - cantidad
+    const ventasCalculada = (Number(producto.stock) || 0) - cantidadNum;
+
+    // Si stock - cantidad > 0 => NO permitir (tal como indicaste)
+    if (ventasCalculada < 0) {
+      alert("No se permite la salida: stock - cantidad es menor que 0.");
+      return;
+    }
+
+    const ok = window.confirm("¿Confirmas la salida rápida de stock?");
+    if (!ok) return;
+
+    try {
+      // tipo_inventario: el que se llama "salida"
+      const tipoSalida = (tiposInventario || []).find(
+        (t) => (t.nombre || "").toLowerCase().trim() === "salida"
+      );
+      const tipo_inventario_id = tipoSalida?.id;
+
+      // sucursal: temporalmente "Piedecuesta" (si no existe, la primera)
+      const piedecuesta = (sucursales || []).find(
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal para la salida.");
+        return;
+      }
+
+      const payload = {
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: producto.id,
+        conteo: (Number(producto.stock) || 0) - cantidadNum, // conteo = stock - ventas
+        ventas: ventasCalculada,                 // ventas = stock - cantidad
+        comentario: quickEntry.observacion || "",// opcional
+        usuario: 1,                              // temporal
+      };
+
+      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
+
+      alert("✅ Salida rápida generada correctamente.");
+      await fetchProducts(); // refrescar stock
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Hubo un error generando la salida rápida. Revisa la consola para más detalle.");
+    }
+  };
+
+
+  const handleDelete = async (productId) => {
+    if (window.confirm("¿Estás seguro de eliminar este producto?")) {
+      try {
+        const response = await fetch(`http://localhost:8000/api/productos/${productId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+
+        // Actualiza el estado eliminando el producto
+        setProducts(products.filter((p) => p.id !== productId));
+        closeModal();
+      } catch (error) {
+        console.error("Error deleting product:", error);
+      }
+    }
+  };
+
+  // Derivados para no mostrar en búsqueda lo ya agregado a la cajita
+  const selectedIds = new Set(selectedInventory.map((i) => i.id));
+  const visibleResults = searchResults.filter((p) => !selectedIds.has(p.id));
+
+  ///////////////////////////////////////////////////
+  //Al pulsar "Generar inventario": validar diferencias y abrir panel previo si aplica
+  const handleGenerateClick = () => {
+    if (selectedInventory.length === 0) {
+      alert("No hay productos en el listado de inventario.");
+      return;
+    }
+
+    const diffs = selectedInventory
+      .map(it => ({ id: it.id, nombre: it.nombre, diff: calcDiff(it) }))
+      .filter(x => x.diff !== 0);
+
+    if (diffs.length > 0) {
+      setPrecheckDiffs(diffs);
+      setGenComment("");      // comentario en blanco
+      setPrecheckOpen(true);  // abrimos panel de confirmación con comentario
+    } else {
+      // Sin diferencias => ir directo a confirmar y postear
+      confirmAndPost("");
+    }
+  };
+
+  //Confirmación y POST
+  const confirmAndPost = async (comentarioGeneral) => {
+    const ok = window.confirm("¿Está seguro de generar el inventario?");
+    if (!ok) return;
+
+    try {
+      setPosting(true);
+
+      // tipo_inventario: el que se llama "inventario"
+      const tipoInv = (tiposInventario || []).find(
+        (t) => (t.nombre || "").toLowerCase().trim() === "inventario"
+      );
+      const tipo_inventario_id = tipoInv ? tipoInv.id : undefined;
+
+      // sucursal: temporalmente "Piedecuesta"
+      const piedecuesta = (sucursales || []).find(
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
+        setPosting(false);
+        return;
+      }
+
+      const usuario_id = 1;
+
+      // 🔹 1) Enviar todos los productos en un solo POST (lista)
+      const url = "http://127.0.0.1:8000/inventarios/";
+      const payloadList = selectedInventory.map((it) => ({
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: it.id,
+        conteo: Number(it.conteo) || 0,
+        ventas: Number(it.ventas) || 0,
+        comentario: comentarioGeneral || "",
+        usuario: usuario_id,
+      }));
+
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payloadList),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
+
+      // 🔹 2) Leer respuesta para obtener el número de lote
+      const created = await resp.json();
+      const lote = created?.[0]?.lote_numero;
+
+      // 🔹 3) Mostrar mensaje indicando el lote
+      alert(`✅ Inventario generado exitosamente.\nLote #${lote}`);
+
+      // 🔹 4) Limpiar listado y recargar productos
+      setSelectedInventory([]);
+      await fetchProducts();
+
+      // Cerrar el modal de precheck si estaba abierto
+      setPrecheckOpen(false);
+      setPrecheckDiffs([]);
+      setGenComment("");
+
+    } catch (e) {
+      console.error(e);
+      alert("Hubo un error generando el inventario. Revisa la consola para más detalle.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+
 
   return (
     <div className="bg-gray-50 p-6 rounded-2xl shadow-sm">
@@ -208,7 +609,7 @@ const InventoryPanel = () => {
       {/* --- MODALES --- */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-2xl relative overflow-y-auto max-h-[90vh] font-[Inter,sans-serif]">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-3xl relative overflow-y-auto max-h-[90vh] font-[Inter,sans-serif]">
             {/* Botón cerrar */}
             <button
               onClick={closeModal}
@@ -270,26 +671,6 @@ const InventoryPanel = () => {
                       className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-400 outline-none resize-none"
                     />
                   </div>
-
-                  {/* Checkbox */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={quickEntry.generarHistorial}
-                      onChange={(e) =>
-                        setQuickEntry({
-                          ...quickEntry,
-                          generarHistorial: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 accent-green-600"
-                    />
-                    <label className="text-gray-700 font-medium">
-                      Generar historial
-                    </label>
-                  </div>
-
-                  {/* Botón acción */}
                   <div className="flex justify-center pt-4">
                     <button
                       type="submit"
@@ -392,9 +773,7 @@ const InventoryPanel = () => {
                     {modal.product?.polaridad}
                 </p>
                 </div>
-
-                <form onSubmit={handleQuickEntry} className="space-y-5">
-                  {/* Cantidad */}
+                <form onSubmit={handleQuickDelete} className="space-y-5">
                   <div>
                     <label className="block font-semibold mb-1 text-gray-700">
                       Cantidad
@@ -426,26 +805,6 @@ const InventoryPanel = () => {
                       className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-400 outline-none resize-none"
                     />
                   </div>
-
-                  {/* Checkbox */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={quickEntry.generarHistorial}
-                      onChange={(e) =>
-                        setQuickEntry({
-                          ...quickEntry,
-                          generarHistorial: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 accent-green-600"
-                    />
-                    <label className="text-gray-700 font-medium">
-                      Generar historial
-                    </label>
-                  </div>
-
-                  {/* Botón acción */}
                   <div className="flex justify-center pt-4">
                     <button
                     type="submit"
@@ -466,41 +825,269 @@ const InventoryPanel = () => {
                 <p className="text-gray-500 mb-4">
                   Realiza conteos físicos y ajusta las existencias.
                 </p>
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-blue-100 text-gray-700 text-left">
-                      <th className="p-2">Batería</th>
-                      <th className="p-2">Stock</th>
-                      <th className="p-2">Conteo</th>
-                      <th className="p-2">Ventas</th>
-                      <th className="p-2">+/-</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {products.map((p) => (
-                      <tr key={p.id} className="hover:bg-gray-50 border-b">
-                        <td className="p-2">{`${p.marca} ${p.caja} ${p.polaridad}`}</td>
-                        <td className="p-2">{p.stock}</td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            defaultValue={p.stock}
-                            className="border rounded-lg p-1 w-20"
-                          />
-                        </td>
-                        <td className="p-2">{p.ventas}</td>
-                        <td className="p-2 font-semibold text-blue-600">
-                          {p.stock - p.ventas}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
 
+                {/* --- Barra de búsqueda y filtro --- */}
+                <div className="flex gap-3 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Buscar producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                  />
+                  <select
+                    value={selectedMarca}
+                    onChange={(e) => setSelectedMarca(e.target.value)}
+                    className="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-400 outline-none"
+                  >
+                    <option value="">Filtrar por marca</option>
+                    {marcas.map((marca) => (
+                      // La API espera texto (ej: faico). Normalizamos a minúsculas y sin espacios en extremos.
+                      <option key={marca.id} value={marca.nombre.toLowerCase().trim()}>
+                        {marca.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* --- Resultados de búsqueda --- */}
+                {searchTerm.trim() !== "" && (
+                  <div
+                    className="mb-6 border rounded-lg overflow-y-auto"
+                    style={{ maxHeight: 228 }}
+                  >
+                    {/* >>> 5) Usar visibleResults en lugar de searchResults */}
+                    {visibleResults.length === 0 ? (
+                      <div className="p-3 text-sm text-gray-500">Sin resultados</div>
+                    ) : (
+                      visibleResults.map((prod) => (
+                        <div
+                          key={prod.id}
+                          className="flex justify-between items-center p-2 hover:bg-gray-50 transition border-b"
+                          style={{ minHeight: 72 }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={prod.imagen}
+                              alt={prod.nombre}
+                              className="w-12 h-12 rounded object-cover border"
+                            />
+                            <span className="font-medium text-gray-800">{prod.nombre}</span>
+                          </div>
+
+                          {/* >>> 5) Este botón ahora agrega a la cajita y saca el ítem de los resultados */}
+                          <button
+                            type="button"
+                            onClick={() => handleAddFromSearch(prod)}
+                            className="text-blue-600 hover:text-blue-800 transition"
+                            title="Agregar al inventario"
+                          >
+                            <PlusCircle size={22} />
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {/* ---------------------------------------------------- */}
+
+
+                {/*Cajita del inventario (scroll después de 5 ítems) */}
+                {/* Cajita del inventario (una sola tabla, header sticky, sin scroll horizontal) */}
+                {selectedInventory.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-xl font-bold mb-2">Listado de inventario</h3>
+
+                    <div className="rounded-lg border overflow-hidden">
+                      {/* Contenedor con scroll vertical y ocultando horizontal */}
+                      <div className="max-h-[340px] overflow-y-auto overflow-x-hidden">
+                        <table className="w-full text-sm table-fixed">
+                          {/* Proporciones parecidas a tu mock: menos ancho para “Baterías” */}
+                          <colgroup>
+                            <col style={{ width: "36%" }} /> {/* Baterías */}
+                            <col style={{ width: "12%" }} /> {/* Stock */}
+                            <col style={{ width: "22%" }} /> {/* Conteo */}
+                            <col style={{ width: "20%" }} /> {/* Ventas */}
+                            <col style={{ width: "10%" }} /> {/* + / - */}
+                          </colgroup>
+
+
+                        <thead className="bg-gray-100 sticky top-0 z-10">
+                          <tr>
+                            <th className="text-left px-4 py-3 text-base font-extrabold">Baterías</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Stock</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Conteo</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold">Ventas</th>
+                            <th className="text-center px-3 py-3 text-base font-extrabold whitespace-nowrap">+ / −</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {selectedInventory.map((it) => {
+                            const diff = calcDiff(it);
+                            const isZero = diff === 0;  
+
+                            return (
+                              <tr key={it.id} className="bg-white border-b last:border-b-0">
+                                {/* Baterías */}
+                                <td className="px-4 py-3 align-middle">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <img
+                                      src={it.imagen}
+                                      alt={it.nombre}
+                                      className="w-11 h-11 rounded object-cover border flex-shrink-0"
+                                    />
+                                    <div className="font-semibold truncate">{it.nombre}</div>
+                                  </div>
+                                </td>
+
+                                {/* Stock */}
+                                <td className="px-3 py-2.5 text-center align-middle">
+                                  <span className="font-extrabold text-[17px]">{it.stock}</span>
+                                </td>
+
+                                {/* Conteo -> + / − juntos + “píldora” azul con el valor */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="inline-flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleIncrement(it.id)}
+                                      className="text-green-600 hover:text-green-800"
+                                      title="Sumar"
+                                    >
+                                      <PlusCircle size={22} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDecrement(it.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Restar"
+                                    >
+                                      <MinusCircle size={22} />
+                                    </button>
+
+                                    {/* “Píldora” editable opcional: si la quieres editable, deja el input; si no, úsalo como display */}
+                                    <input
+                                      type="number"
+                                      value={it.conteo}
+                                      onChange={(e) => handleConteoInput(it.id, e.target.value)}
+                                      className="w-14 text-center font-extrabold text-white rounded-full px-2 py-1 bg-blue-600
+                                                appearance-none
+                                                [--tw-ring-offset-shadow:0_0_#0000] [--tw-ring-shadow:0_0_#0000]
+                                                [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                </td>
+
+                                {/* Ventas */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="inline-flex items-center gap-3">
+                                    <input
+                                      type="number"
+                                      value={it.ventas}
+                                      onChange={(e) => handleVentasChange(it.id, e.target.value)}
+                                      className="w-20 text-center rounded-lg px-2 py-1 border
+                                                appearance-none
+                                                [&::-webkit-outer-spin-button]:appearance-none
+                                                [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                  </div>
+                                </td>
+
+
+                                {/* + / - (diferencia) + eliminar */}
+                                <td className="px-3 py-3 text-center align-middle">
+                                  <div className="flex items-center justify-center gap-3">
+                                    <span
+                                      className={`font-semibold ${isZero ? "text-blue-600" : "text-red-600"}`}
+                                      title="Diferencia = Stock - Conteo - Ventas"
+                                    >
+                                      {diff}
+                                    </span>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveFromInventory(it.id)}
+                                      className="text-red-600 hover:text-red-800 px-2 py-1 rounded"
+                                      title="Eliminar de inventario"
+                                    >
+                                      <X size={18} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* ---------------------------------------------------- */}
+
+                {/* --- PRECHECK: solo visible si hay diferencias --- */}
+                {precheckOpen && (
+                  <div className="mt-4 border rounded-lg p-4 bg-orange-50">
+                    <h4 className="font-bold text-orange-800 mb-2">Se detectaron diferencias</h4>
+                    <p className="text-orange-700 mb-3 text-sm">
+                      Revisa las baterías con diferencia distinta de 0 o deja un comentario general explicando la causa.
+                    </p>
+
+                    <ul className="list-disc pl-6 mb-4 text-sm text-orange-900">
+                      {precheckDiffs.map(d => (
+                        <li key={d.id}>
+                          <span className="font-semibold">{d.nombre}</span>: diferencia {d.diff}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Comentario general (solo se pide si hay diferencias) */}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Comentario general
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={genComment}
+                      onChange={(e) => setGenComment(e.target.value)}
+                      placeholder="Describe brevemente la razón de las diferencias..."
+                      className="w-full border rounded-lg p-2 mb-3"
+                    />
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+                        onClick={() => setPrecheckOpen(false)}
+                      >
+                        Regresar al inventario
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={posting}
+                        className={`px-4 py-2 rounded-lg text-white
+                                    ${posting ? "bg-blue-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                        onClick={() => confirmAndPost(genComment)}
+                      >
+                        {posting ? "Enviando..." : "Continuar y generar"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {/* ---------------------------------------------------- */}
                 <div className="flex gap-3 mt-6">
-                  <button className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
-                    <FileDown size={18} /> Generar inventario
+                  <button
+                    disabled={posting}
+                    onClick={handleGenerateClick}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition text-white
+                                ${posting ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"}`}
+                  >
+                    <FileDown size={18} />
+                    {posting ? "Generando..." : "Generar inventario"}
                   </button>
+
                   <button
                     onClick={closeModal}
                     className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition"

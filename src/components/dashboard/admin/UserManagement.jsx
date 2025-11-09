@@ -133,14 +133,15 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="bg-gray-50 p-6 rounded-2xl shadow-sm">
-      {/* Encabezado */}
+    <>
+      {/* Encabezado - FUERA del contenedor */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE USUARIOS</h1>
         <p className="text-gray-500">Administra las cuentas y roles del sistema PowerStock.</p>
       </div>
 
-      {/* Tabla */}
+      {/* === SIN contenedor bg-gray-50 === */}
+      {/* Botón agregar y tabla directamente */}
       <div className="bg-white rounded-2xl shadow-md p-6">
         <div className="flex justify-between mb-4">
           <button
@@ -186,7 +187,7 @@ const UserManagement = () => {
         </table>
       </div>
 
-      {/* Modal */}
+      {/* Modal - sin cambios */}
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh]">
@@ -329,7 +330,7 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
