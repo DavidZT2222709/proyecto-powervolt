@@ -1,79 +1,135 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { PlusCircle, Edit, Trash2, X } from "lucide-react";
+import { getUsers, createUser, updateUser, deleteUser, getRoles } from "../../../api/usuarios"; 
+import toast from "react-hot-toast";
 
 const UserManagement = () => {
   const [modal, setModal] = useState({ open: false, type: "", user: null });
-
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      nombre: "Carlos Pérez",
-      correo: "carlos@powerstock.com",
-      rol: "Administrador",
-      estado: "Activo",
-    },
-    {
-      id: 2,
-      nombre: "María Gómez",
-      correo: "maria@powerstock.com",
-      rol: "Vendedor",
-      estado: "Activo",
-    },
-    {
-      id: 3,
-      nombre: "Julián Rojas",
-      correo: "julian@powerstock.com",
-      rol: "Inventarista",
-      estado: "Inactivo",
-    },
-  ]);
-
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [rolesMap, setRolesMap] = useState({});
   const [newUser, setNewUser] = useState({
-    id: null,
     nombre: "",
-    correo: "",
-    rol: "",
-    estado: "Activo",
+    email: "",
+    username: "",
+    numero_telefono: "",
+    rol_id: "",
+    password: ""
   });
 
+  const [formErrors, setFormErrors] = useState({});
+  const token = localStorage.getItem("access_token");
+
+  useEffect(() => {
+    loadUsers();
+    loadRoles();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const data = await getUsers(token);
+      setUsers(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const loadRoles = async () => {
+    try {
+      const data = await getRoles(token);
+      setRoles(data);
+
+      const map = {};
+      data.forEach(r => {
+        map[String(r.id)] = r.nombre;
+      });
+      setRolesMap(map);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const handleChange = (e) => {
-    setNewUser({ ...newUser, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setNewUser({
+      ...newUser,
+      [name]: name === "rol_id" ? parseInt(value, 10) : value
+    });
+
+    if (formErrors[name]) {
+      setFormErrors({ ...formErrors, [name]: null });
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setFormErrors({});
+
+    try {
+      const payload = {
+        nombre: newUser.nombre,
+        username: newUser.username,
+        email: newUser.email,
+        numero_telefono: newUser.numero_telefono,
+        rol_id: newUser.rol_id,
+        password: newUser.password
+      };
+
+      if (modal.type === "edit" && !payload.password) delete payload.password;
+
+      console.log("Guardando usuario limpio:", payload);
+
+      if (modal.type === "add") {
+        await createUser(payload);
+        alert("✅ Usuario creado correctamente");
+      } else {
+        const payload = {
+        nombre: newUser.nombre,
+        username: newUser.username,
+        email: newUser.email,
+        numero_telefono: newUser.numero_telefono,
+        rol: newUser.rol_id,
+        password: newUser.password
+      };
+        await updateUser(newUser.id, payload);
+        alert("✅ Usuario actualizado correctamente");
+      }
+
+      await loadUsers();
+      closeModal();
+    } catch (error) {
+      console.error("Error al guardar usuario:", error);
+      toast.error("❌ Error al guardar usuario. Verifica los campos.");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteUser(id, token);
+      await loadUsers();
+      closeModal();
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const openModal = (type, user = null) => {
     setModal({ open: true, type, user });
-    if (type === "edit" && user) {
-      // Clonamos el usuario para editarlo sin mutar el original
-      setNewUser({ ...user });
-    } else {
-      // Si es "add", se limpia el formulario
-      setNewUser({
+    setNewUser(
+      user || {
         id: null,
         nombre: "",
-        correo: "",
-        rol: "",
-        estado: "Activo",
-      });
-    }
+        username: "",
+        email: "",
+        rol_id: "",
+        numero_telefono: "",
+        password: "",
+      }
+    );
   };
 
   const closeModal = () => {
     setModal({ open: false, type: "", user: null });
-  };
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    if (modal.type === "add") {
-      setUsers([...users, { ...newUser, id: Date.now() }]);
-    } else if (modal.type === "edit") {
-      setUsers(users.map((u) => (u.id === newUser.id ? newUser : u)));
-    }
-    closeModal();
-  };
-
-  const handleDelete = (id) => {
-    setUsers(users.filter((u) => u.id !== id));
-    closeModal();
   };
 
   return (
@@ -81,9 +137,7 @@ const UserManagement = () => {
       {/* Encabezado */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE USUARIOS</h1>
-        <p className="text-gray-500">
-          Administra las cuentas y roles del sistema PowerStock.
-        </p>
+        <p className="text-gray-500">Administra las cuentas y roles del sistema PowerStock.</p>
       </div>
 
       {/* Tabla */}
@@ -101,9 +155,9 @@ const UserManagement = () => {
           <thead>
             <tr className="bg-blue-100 text-left text-gray-700">
               <th className="p-2">Nombre</th>
-              <th className="p-2">Correo</th>
+              <th className="p-2">Email</th>
               <th className="p-2">Rol</th>
-              <th className="p-2">Estado</th>
+              <th className="p-2">Teléfono</th>
               <th className="p-2 text-center">Acciones</th>
             </tr>
           </thead>
@@ -111,23 +165,15 @@ const UserManagement = () => {
             {users.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50 border-b">
                 <td className="p-2">{u.nombre}</td>
-                <td className="p-2">{u.correo}</td>
-                <td className="p-2">{u.rol}</td>
-                <td
-                  className={`p-2 font-semibold ${
-                    u.estado === "Activo" ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {u.estado}
-                </td>
+                <td className="p-2">{u.email}</td>
+                <td className="p-2">{rolesMap[String(u.rol)] || "Sin rol"}</td>
+                <td className="p-2">{u.numero_telefono}</td>
                 <td className="p-2 text-center flex justify-center gap-5">
-                  {/* Editar */}
                   <Edit
                     size={20}
                     className="text-blue-600 hover:text-blue-800 cursor-pointer transition"
                     onClick={() => openModal("edit", u)}
                   />
-                  {/* Eliminar */}
                   <Trash2
                     size={20}
                     className="text-red-600 hover:text-red-800 cursor-pointer transition"
@@ -144,7 +190,6 @@ const UserManagement = () => {
       {modal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-xl relative overflow-y-auto max-h-[90vh]">
-            {/* Botón cerrar */}
             <button
               onClick={closeModal}
               className="absolute top-3 right-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-full p-2 transition"
@@ -152,7 +197,6 @@ const UserManagement = () => {
               <X size={20} />
             </button>
 
-            {/* Agregar / Editar */}
             {(modal.type === "add" || modal.type === "edit") && (
               <>
                 <h2 className="text-2xl font-bold mb-4 text-blue-700 text-center">
@@ -169,45 +213,77 @@ const UserManagement = () => {
                       className="w-full border rounded-lg p-2 mt-1"
                       required
                     />
+                    {formErrors.nombre && <p className="text-red-600 text-sm mt-1">{formErrors.nombre}</p>}
                   </div>
+
                   <div>
-                    <label className="block text-gray-700 font-medium">Correo</label>
+                    <label className="block text-gray-700 font-medium">Email</label>
                     <input
-                      name="correo"
+                      name="email"
                       type="email"
-                      value={newUser.correo}
+                      value={newUser.email}
                       onChange={handleChange}
                       className="w-full border rounded-lg p-2 mt-1"
                       required
                     />
+                    {formErrors.email && <p className="text-red-600 text-sm mt-1">{formErrors.email}</p>}
                   </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-medium">Username</label>
+                    <input
+                      name="username"
+                      value={newUser.username}
+                      onChange={handleChange}
+                      className="w-full border rounded-lg p-2 mt-1"
+                      required
+                    />
+                    {formErrors.username && <p className="text-red-600 text-sm mt-1">{formErrors.username}</p>}
+                  </div>
+
                   <div>
                     <label className="block text-gray-700 font-medium">Rol</label>
                     <select
-                      name="rol"
-                      value={newUser.rol}
+                      name="rol_id"
+                      value={newUser.rol_id || ""}
                       onChange={handleChange}
                       className="w-full border rounded-lg p-2 mt-1"
                       required
                     >
                       <option value="">Seleccionar...</option>
-                      <option value="Administrador">Administrador</option>
-                      <option value="Vendedor">Vendedor</option>
-                      <option value="Inventarista">Inventarista</option>
+                      {roles.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.nombre}
+                        </option>
+                      ))}
                     </select>
                   </div>
+
                   <div>
-                    <label className="block text-gray-700 font-medium">Estado</label>
-                    <select
-                      name="estado"
-                      value={newUser.estado}
+                    <label className="block text-gray-700 font-medium">Teléfono</label>
+                    <input
+                      name="numero_telefono"
+                      value={newUser.numero_telefono}
                       onChange={handleChange}
                       className="w-full border rounded-lg p-2 mt-1"
-                    >
-                      <option value="Activo">Activo</option>
-                      <option value="Inactivo">Inactivo</option>
-                    </select>
+                      required
+                    />
                   </div>
+
+                  {modal.type === "add" && (
+                    <div className="mb-4">
+                      <label className="block text-gray-700 font-medium">Contraseña</label>
+                      <input
+                        name="password"
+                        type="password"
+                        value={newUser.password}
+                        onChange={handleChange}
+                        className="w-full border rounded-lg p-2 mt-1"
+                        required
+                      />
+                      {formErrors.password && <p className="text-red-600 text-sm mt-1">{formErrors.password}</p>}
+                    </div>
+                  )}
 
                   <div className="flex justify-end gap-3 pt-3">
                     <button
@@ -228,15 +304,11 @@ const UserManagement = () => {
               </>
             )}
 
-            {/* Eliminar */}
             {modal.type === "delete" && (
               <>
-                <h2 className="text-2xl font-bold mb-4 text-[#D50000] text-center">
-                  Eliminar usuario
-                </h2>
+                <h2 className="text-2xl font-bold mb-4 text-[#D50000] text-center">Eliminar usuario</h2>
                 <p className="text-center text-gray-600 mb-6">
-                  ¿Seguro que deseas eliminar al usuario{" "}
-                  <span className="font-semibold">{modal.user?.nombre}</span>?
+                  ¿Seguro que deseas eliminar al usuario <span className="font-semibold">{modal.user?.nombre}</span>?
                 </p>
                 <div className="flex justify-center gap-4">
                   <button
