@@ -1,13 +1,16 @@
 import React from 'react';
+import { Outlet } from 'react-router-dom';
 import Header from './Header';
 
-function Layout({ children }) {
-    return (
-        <div>
-        <Header />
-        <main className="p-0">{children}</main>
-        </div>
-    );
+function Layout() {
+  return (
+    <div>
+      <Header />
+      <main className="p-0">
+        <Outlet />
+      </main>
+    </div>
+  );
 }
 
 export default Layout;
