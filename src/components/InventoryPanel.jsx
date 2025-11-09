@@ -227,6 +227,12 @@ const InventoryPanel = () => {
         observacion: "",
       });
     }
+    if (type === "deletefast" && product) {
+      setQuickEntry({
+        cantidad: "",
+        observacion: "",
+      });
+    }
   };
 
   const closeModal = () => {
@@ -350,6 +356,76 @@ const InventoryPanel = () => {
     } catch (err) {
       console.error(err);
       alert("❌ Hubo un error generando la entrada rápida. Revisa la consola para más detalle.");
+    }
+  };
+
+
+  const handleQuickDelete = async (e) => {
+    e.preventDefault();
+
+    const producto = modal.product;
+    const cantidadNum = Number(quickEntry.cantidad) || 0;
+    if (!producto || cantidadNum <= 0) {
+      alert("Ingresa una cantidad válida.");
+      return;
+    }
+
+    // Regla: ventas = stock - cantidad
+    const ventasCalculada = (Number(producto.stock) || 0) - cantidadNum;
+
+    // Si stock - cantidad > 0 => NO permitir (tal como indicaste)
+    if (ventasCalculada < 0) {
+      alert("No se permite la salida: stock - cantidad es menor que 0.");
+      return;
+    }
+
+    const ok = window.confirm("¿Confirmas la salida rápida de stock?");
+    if (!ok) return;
+
+    try {
+      // tipo_inventario: el que se llama "salida"
+      const tipoSalida = (tiposInventario || []).find(
+        (t) => (t.nombre || "").toLowerCase().trim() === "salida"
+      );
+      const tipo_inventario_id = tipoSalida?.id;
+
+      // sucursal: temporalmente "Piedecuesta" (si no existe, la primera)
+      const piedecuesta = (sucursales || []).find(
+        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
+      );
+      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+
+      if (!tipo_inventario_id || !sucursal_id) {
+        alert("No fue posible resolver tipo de inventario o sucursal para la salida.");
+        return;
+      }
+
+      const payload = {
+        tipo_inventario_id,
+        sucursal_id,
+        producto_id: producto.id,
+        conteo: (Number(producto.stock) || 0) - cantidadNum, // conteo = stock - ventas
+        ventas: ventasCalculada,                 // ventas = stock - cantidad
+        comentario: quickEntry.observacion || "",// opcional
+        usuario: 1,                              // temporal
+      };
+
+      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!resp.ok) {
+        throw new Error(`Error ${resp.status}: ${await resp.text()}`);
+      }
+
+      alert("✅ Salida rápida generada correctamente.");
+      await fetchProducts(); // refrescar stock
+      closeModal();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Hubo un error generando la salida rápida. Revisa la consola para más detalle.");
     }
   };
 
@@ -781,7 +857,7 @@ const InventoryPanel = () => {
                     {modal.product?.polaridad}
                   </p>
                 </div>
-                <form onSubmit={handleQuickEntry} className="space-y-5">
+                <form onSubmit={handleQuickDelete} className="space-y-5">
                   <div>
                     <label className="block font-semibold mb-1 text-gray-700">
                       Cantidad
@@ -810,22 +886,6 @@ const InventoryPanel = () => {
                       placeholder="Escriba una observación..."
                       className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-green-400 outline-none resize-none"
                     />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={quickEntry.generarHistorial}
-                      onChange={(e) =>
-                        setQuickEntry({
-                          ...quickEntry,
-                          generarHistorial: e.target.checked,
-                        })
-                      }
-                      className="w-4 h-4 accent-green-600"
-                    />
-                    <label className="text-gray-700 font-medium">
-                      Generar historial
-                    </label>
                   </div>
                   <div className="flex justify-center pt-4">
                     <button
