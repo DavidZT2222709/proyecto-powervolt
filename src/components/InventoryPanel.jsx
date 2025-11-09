@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { fetchWithToken } from "../api/fetchWithToken.js";
 import {
   PlusCircle,
   MinusCircle,
@@ -11,7 +12,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-
+const API_URL = "http://localhost:8000/api";
 
 const InventoryPanel = () => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
@@ -57,7 +58,7 @@ const InventoryPanel = () => {
   // Función para obtener productos desde la API
   const fetchProducts = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/productos/");
+      const response = await fetchWithToken(`${API_URL}/productos/`);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -68,7 +69,7 @@ const InventoryPanel = () => {
   // Función para obtener marcas desde la API
   const fetchMarcas = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/marcas/");
+      const response = await fetchWithToken(`${API_URL}/marcas/`);
       const data = await response.json();
       setMarcas(data);
     } catch (error) {
@@ -79,7 +80,7 @@ const InventoryPanel = () => {
   // Función para obtener sucursales desde la API
   const fetchSucursales = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/sucursales/");
+      const response = await fetchWithToken(`${API_URL}/sucursales/`);
       const data = await response.json();
       setSucursales(data);
     } catch (error) {
@@ -169,12 +170,12 @@ const InventoryPanel = () => {
       }
 
       try {
-        let url = `http://127.0.0.1:8000/api/productos/?q=${encodeURIComponent(searchTerm)}`;
+        let url = `${API_URL}/productos/?q=${encodeURIComponent(searchTerm)}`;
         if (selectedMarca) {
           url += `&marca=${selectedMarca}`;
         }
 
-        const response = await fetch(url);
+        const response = await fetchWithToken(url);
         const data = await response.json();
         setSearchResults(data);
       } catch (error) {
@@ -189,7 +190,7 @@ const InventoryPanel = () => {
   // Función para obtener tipos de inventario desde la API
   const fetchTiposInventario = async () => {
     try {
-      const resp = await fetch("http://localhost:8000/api/tipos-inventario/");
+      const resp = await fetchWithToken(`${API_URL}/tipos-inventario/`);
       const data = await resp.json();
       setTiposInventario(data);
     } catch (e) {
@@ -256,7 +257,7 @@ const InventoryPanel = () => {
       formData.append('imagen', newProduct.imagen);
     }
 
-    let url = "http://localhost:8000/api/productos/";
+    let url = `${API_URL}/productos/`;
     let method = "POST";
 
     if (modal.type === "edit") {
@@ -336,7 +337,7 @@ const InventoryPanel = () => {
         usuario: 1, // temporal
       };
 
-      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+      const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload), // << POST de un SOLO objeto
@@ -410,7 +411,7 @@ const InventoryPanel = () => {
         usuario: 1,                              // temporal
       };
 
-      const resp = await fetch("http://127.0.0.1:8000/inventarios/", {
+      const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -433,7 +434,7 @@ const InventoryPanel = () => {
   const handleDelete = async (productId) => {
     if (window.confirm("¿Estás seguro de eliminar este producto?")) {
       try {
-        const response = await fetch(`http://localhost:8000/api/productos/${productId}`, {
+        const response = await fetchWithToken(`${API_URL}/productos/${productId}`, {
           method: "DELETE",
         });
 
@@ -505,7 +506,7 @@ const InventoryPanel = () => {
       const usuario_id = 1;
 
       // 🔹 1) Enviar todos los productos en un solo POST (lista)
-      const url = "http://127.0.0.1:8000/inventarios/";
+      const url = `${API_URL}/inventarios/`;
       const payloadList = selectedInventory.map((it) => ({
         tipo_inventario_id,
         sucursal_id,
@@ -516,7 +517,7 @@ const InventoryPanel = () => {
         usuario: usuario_id,
       }));
 
-      const resp = await fetch(url, {
+      const resp = await fetchWithToken(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payloadList),
