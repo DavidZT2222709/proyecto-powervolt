@@ -1,13 +1,13 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
-import Login from './Login';
+import LoginPage from './Login';
 
 /* ADMINISTRADOR */
 import AdminDashboard from './components/dashboard/admin/AdminDashboard.jsx';
 
 /* COLABORADOR */
-import UserDashboard from './components/dashboard/worker/WorkerDashboard.jsx';
+import UserDashboard from './components/dashboard/worker/UserDashboard.jsx';
 
 
 function App() {
@@ -15,7 +15,7 @@ function App() {
         <Router>
         <Routes>
             {/* Rutas sin header */}
-            <Route path="/" element={<Login />} />
+            <Route path="/" element={<LoginPage />} />
 
             {/* Rutas con header (protegidas) */}
             <Route path="/admin" element={<Layout><AdminDashboard /></Layout>} />

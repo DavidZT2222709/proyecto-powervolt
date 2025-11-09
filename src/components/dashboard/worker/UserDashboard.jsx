@@ -18,13 +18,6 @@ function UserDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("userRole");
-    navigate("/", { replace: true }); 
-  };
-
   const data = {
     labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
     datasets: [
@@ -90,15 +83,6 @@ function UserDashboard() {
             <ClipboardList size={20} /> Garantías
           </button>
         </nav>
-
-        <div className="p-4 border-t border-blue-500">
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 w-full justify-center p-2 rounded-lg transition"
-          >
-            <LogOut size={18} /> Cerrar Sesión
-          </button>
-        </div>
       </aside>
 
       {/* ===== Contenido Principal ===== */}
@@ -119,20 +103,6 @@ function UserDashboard() {
                   <p className="text-gray-500 text-sm">
                     Bienvenido al sistema de gestión PowerStock
                   </p>
-                </div>
-
-                <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200">
-                  <img
-                    src="https://cdn-icons-png.flaticon.com/512/219/219983.png"
-                    alt="User Avatar"
-                    className="w-10 h-10 rounded-full"
-                  />
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-800">Pancho Perez</p>
-                    <p className="text-sm text-gray-500">
-                      Empleado • Sucursal #1
-                    </p>
-                  </div>
                 </div>
               </header>
 

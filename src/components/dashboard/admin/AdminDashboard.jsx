@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Pie } from "react-chartjs-2";
 import Chart from "chart.js/auto";
-import { useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Package,
@@ -20,11 +19,11 @@ import {
 import InventoryPanel from "../../InventoryPanel.jsx";
 import UserManagement from "./UserManagement.jsx";
 import HistoryPanel from "./HistoryPanel";
+import BranchesPanel from "./BranchesPanel.jsx"
 import WarrantiesPanel from './WarrantiesPanel.jsx';
 
 
 function AdminDashboard() {
-    const navigate = useNavigate();
   // Detectar si hay un hash en la URL (#/admin/usuarios, etc.)
   const getInitialView = () => {
     const hash = window.location.hash;
@@ -42,14 +41,6 @@ function AdminDashboard() {
   useEffect(() => {
     window.location.hash = `#/admin/${activeView}`;
   }, [activeView]);
-
-
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("userRole");
-    navigate("/", { replace: true }); 
-  };
 
   const data = {
     labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
@@ -139,19 +130,6 @@ function AdminDashboard() {
                 <p className="text-gray-500">
                   Bienvenido al sistema de gestión PowerStock
                 </p>
-              </div>
-              <div className="flex items-center gap-4 bg-white shadow px-4 py-2 rounded-lg">
-                <div className="text-right">
-                  <h2 className="font-semibold text-gray-700">Pancho Perez</h2>
-                  <p className="text-sm text-gray-500">
-                    Administrador • Sucursal #1
-                  </p>
-                </div>
-                <img
-                  src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-                  alt="Avatar"
-                  className="w-10 h-10 rounded-full border-2 border-blue-500"
-                />
               </div>
             </header>
 
@@ -260,6 +238,7 @@ function AdminDashboard() {
         {activeView === "usuarios" && <UserManagement />}
         {activeView === "historial" && <HistoryPanel />}
         {activeView === "garantias" && <WarrantiesPanel />}
+        {activeView === "sucursales" && <BranchesPanel />}
       </main>
     </div>
   );
