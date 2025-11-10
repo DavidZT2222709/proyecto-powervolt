@@ -387,6 +387,11 @@ const DetailLote = ({ items, userName }) => {
   if (!items?.length) return null;
   const head = items[0];
   const fecha = new Date(head.fecha_creacion).toLocaleString();
+  const loteComment = head.comentario || "—";
+  const listClass =
+    items.length > 3
+      ? "space-y-2 max-h-80 overflow-y-auto pr-1"
+      : "space-y-2";
 
   return (
     <div className="space-y-4">
@@ -399,7 +404,7 @@ const DetailLote = ({ items, userName }) => {
 
       <div className="mt-2">
         <h4 className="font-semibold mb-2">Productos del lote</h4>
-        <div className="space-y-2">
+        <div className={listClass}>
           {items.map((p) => {
             const entrada = (p.conteo ?? 0) - (p.stock_anterior ?? 0);
             return (
@@ -420,11 +425,14 @@ const DetailLote = ({ items, userName }) => {
                     danger={(p.num_diferencias ?? 0) !== 0}
                   />
                   <Box label="Entrada" value={entrada} />
-                  <Box label="Comentario" value={p.comentario || "—"} />
                 </div>
               </div>
             );
           })}
+        </div>
+        {/* Comentario del lote (una sola vez) */}
+        <div className="mt-4">
+          <Box label="Comentario del lote" value={loteComment} />
         </div>
       </div>
     </div>
