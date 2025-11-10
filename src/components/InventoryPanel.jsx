@@ -16,6 +16,44 @@ import {
 
 const API_URL = "http://localhost:8000/api";
 
+
+//////////////////////////////////////////////////
+// === Helpers para obtener el id del usuario de forma simple ===
+function getUserIdFromJWT(token) {
+  try {
+    // Decodifica el payload del JWT (base64url)
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
+    return payload.user_id || payload.id || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentUserId() {
+  // ¿Hay un objeto "user" en localStorage con .id?
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user?.id) return user.id;
+  } catch {}
+
+  // ¿Hay algún token JWT? (ajusta los nombres si se usan otros)
+  const token =
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token");
+
+  if (token) {
+    const uid = getUserIdFromJWT(token);
+    if (uid) return uid;
+  }
+
+  // No se encontró
+  return null;
+}
+//////////////////////////////////////////////////
+
+
 const InventoryPanel = () => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
   const [quickEntry, setQuickEntry] = useState({
@@ -44,8 +82,15 @@ const InventoryPanel = () => {
   const [searchResults, setSearchResults] = useState([]);
   // Productos agregados al listado de inventario (cajita)
   const [selectedInventory, setSelectedInventory] = useState([]);
+
   // Contexto de sucursal seleccionada
   const { selectedSucursal } = useSucursal();
+  // Usuario actual (intenta user.id o decodifica el JWT)
+  const [currentUserId, setCurrentUserId] = useState(getCurrentUserId());
+  useEffect(() => {
+    setCurrentUserId(getCurrentUserId());
+  }, []);
+
 
   const [newProduct, setNewProduct] = useState({
     caja: "",
@@ -178,9 +223,14 @@ const InventoryPanel = () => {
       }
 
       try {
+        const sucursal = selectedSucursal?.nombre; // la sucursal actual
         let url = `${API_URL}/productos/?q=${encodeURIComponent(searchTerm)}`;
+
         if (selectedMarca) {
           url += `&marca=${selectedMarca}`;
+        }
+        if (sucursal) {
+          url += `&sucursal=${encodeURIComponent(sucursal)}`;
         }
 
         const response = await fetchWithToken(url);
@@ -193,7 +243,8 @@ const InventoryPanel = () => {
 
     const delayDebounce = setTimeout(fetchSearchResults, 400);
     return () => clearTimeout(delayDebounce);
-  }, [searchTerm, selectedMarca]);
+  }, [searchTerm, selectedMarca, selectedSucursal]);
+
 
   // Función para obtener tipos de inventario desde la API
   const fetchTiposInventario = async () => {
@@ -379,14 +430,15 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoEntrada?.id;
 
-      // Sucursal: temporalmente "Piedecuesta" (si no, toma la primera)
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal para la entrada.");
+        return;
+      }
+      if (!currentUserId) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
         return;
       }
 
@@ -399,7 +451,7 @@ const InventoryPanel = () => {
         conteo: (Number(producto.stock) || 0) + cantidadNum,
         ventas: 0,
         comentario: quickEntry.observacion || "",
-        usuario: 1, // temporal
+        usuario: currentUserId,
       };
 
       const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
@@ -455,14 +507,15 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoSalida?.id;
 
-      // sucursal: temporalmente "Piedecuesta" (si no existe, la primera)
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal para la salida.");
+        return;
+      }
+      if (!currentUserId) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
         return;
       }
 
@@ -473,7 +526,7 @@ const InventoryPanel = () => {
         conteo: (Number(producto.stock) || 0) - cantidadNum, // conteo = stock - ventas
         ventas: ventasCalculada,                 // ventas = stock - cantidad
         comentario: quickEntry.observacion || "",// opcional
-        usuario: 1,                              // temporal
+        usuario: currentUserId,
       };
 
       const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
@@ -556,11 +609,8 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoInv ? tipoInv.id : undefined;
 
-      // sucursal: temporalmente "Piedecuesta"
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
@@ -568,9 +618,15 @@ const InventoryPanel = () => {
         return;
       }
 
-      const usuario_id = 1;
+      // Usuario actual
+      const usuario_id = currentUserId;
+      if (!usuario_id) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
+        setPosting(false);
+        return;
+      }
 
-      // 🔹 1) Enviar todos los productos en un solo POST (lista)
+      // Enviar todos los productos en un solo POST (lista)
       const url = `${API_URL}/inventarios/`;
       const payloadList = selectedInventory.map((it) => ({
         tipo_inventario_id,
@@ -592,14 +648,14 @@ const InventoryPanel = () => {
         throw new Error(`Error ${resp.status}: ${await resp.text()}`);
       }
 
-      // 🔹 2) Leer respuesta para obtener el número de lote
+      // Leer respuesta para obtener el número de lote
       const created = await resp.json();
       const lote = created?.[0]?.lote_numero;
 
-      // 🔹 3) Mostrar mensaje indicando el lote
+      // Mostrar mensaje indicando el lote
       alert(`✅ Inventario generado exitosamente.\nLote #${lote}`);
 
-      // 🔹 4) Limpiar listado y recargar productos
+      // Limpiar listado y recargar productos
       setSelectedInventory([]);
       await fetchProducts();
 
