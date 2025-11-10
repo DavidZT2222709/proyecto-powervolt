@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchWithToken } from "../api/fetchWithToken.js";
+import { useSucursal } from "../context/SucursalContext";
+
 import {
   PlusCircle,
   MinusCircle,
@@ -42,7 +44,8 @@ const InventoryPanel = () => {
   const [searchResults, setSearchResults] = useState([]);
   // Productos agregados al listado de inventario (cajita)
   const [selectedInventory, setSelectedInventory] = useState([]);
-
+  // Contexto de sucursal seleccionada
+  const { selectedSucursal } = useSucursal();
 
   const [newProduct, setNewProduct] = useState({
     caja: "",
@@ -58,7 +61,12 @@ const InventoryPanel = () => {
   // Función para obtener productos desde la API
   const fetchProducts = async () => {
     try {
-      const response = await fetchWithToken(`${API_URL}/productos/`);
+      const sucursal = selectedSucursal?.nombre; // ← obtén la sucursal
+      const url = sucursal
+        ? `${API_URL}/productos/?sucursal=${encodeURIComponent(sucursal)}`
+        : `${API_URL}/productos/`;
+
+      const response = await fetchWithToken(url);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -198,9 +206,13 @@ const InventoryPanel = () => {
     }
   };
 
-  // Efecto para cargar productos, marcas y sucursales al montar el componente
+  // Efecto para cargar productos y actualizar al cambiar de sucursal
   useEffect(() => {
     fetchProducts();
+  }, [selectedSucursal]);
+
+  // Solo se cargan una vez marcas, sucursales y tipos de inventario
+  useEffect(() => {
     fetchMarcas();
     fetchSucursales();
     fetchTiposInventario();

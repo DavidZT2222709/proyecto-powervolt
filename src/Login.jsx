@@ -348,19 +348,19 @@ const handlePasswordConfirm = async (e) => {
                     <div>
                       <label htmlFor="token">Token</label>
                       <input id="token" type="text" value={token} onChange={(e) => setToken(e.target.value)} className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 
-                                   shadow-[0_6px_15px_rgba(125,211,252,0.6)]
-                                   hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
-                                   transition-all duration-200 ease-in-out
-                                   focus:outline-none focus:ring-2 focus:ring-blue-400" required />
+                                  shadow-[0_6px_15px_rgba(125,211,252,0.6)]
+                                  hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
+                                  transition-all duration-200 ease-in-out
+                                  focus:outline-none focus:ring-2 focus:ring-blue-400" required />
                     </div>
                
                   <div>
                     <label htmlFor="newPassword">Nueva contraseña</label>
                     <input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 
-                                   shadow-[0_6px_15px_rgba(125,211,252,0.6)]
-                                   hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
-                                   transition-all duration-200 ease-in-out
-                                   focus:outline-none focus:ring-2 focus:ring-blue-400"  required />
+                                  shadow-[0_6px_15px_rgba(125,211,252,0.6)]
+                                  hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
+                                  transition-all duration-200 ease-in-out
+                                  focus:outline-none focus:ring-2 focus:ring-blue-400"  required />
                   </div>
                   <button type="submit" className="w-full py-4 text-xl bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold rounded-2xl hover:scale-[1.03] transition-transform duration-200 shadow-md">Restablecer contraseña</button>
                 </form>
@@ -381,6 +381,4 @@ const handlePasswordConfirm = async (e) => {
     </div>
   );
 };
-
-
 export default LoginPage;
