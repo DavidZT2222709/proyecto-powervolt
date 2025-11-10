@@ -1,6 +1,6 @@
 // src/components/HistoryPanel.jsx
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, User, Info } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, User, Info, X, Edit2, Trash2, Check } from "lucide-react";
 import { useSucursal } from "../../../context/SucursalContext";
 import { fetchWithToken } from "../../../api/fetchWithToken.js";
 import { getUsers } from "../../../api/usuarios.js";
@@ -324,16 +324,20 @@ const DetailModal = ({ onClose, payload, userName }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white w-full max-w-3xl rounded-2xl shadow-xl p-6">
+      <div className="relative bg-white w-full max-w-3xl rounded-2xl shadow-xl p-6">
+        {/* Encabezado solo con el título */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">{title}</h3>
-          <button
-            onClick={onClose}
-            className="px-3 py-1 rounded-lg bg-gray-100 hover:bg-gray-200"
-          >
-            Cerrar
-          </button>
+          <h3 className="text-xl font-semibold pr-8">{title}</h3>
         </div>
+
+        {/* Botón de cerrar flotante en la esquina */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 text-red-600 hover:bg-red-100 rounded-full p-2 transition"
+          title="Cerrar"
+        >
+          <X size={20} />
+        </button>
 
         {/* CONTENIDO */}
         {!isLote ? (
@@ -341,10 +345,143 @@ const DetailModal = ({ onClose, payload, userName }) => {
         ) : (
           <DetailLote items={payload.items} userName={userName} />
         )}
+        <FooterActions payload={payload} onClose={onClose} />
       </div>
     </div>
   );
 };
+
+const FooterActions = ({ payload, onClose }) => {
+  return (
+    <div className="mt-5 flex items-center gap-2">
+      {/* Editar comentario (con Guardar/Cancelar cuando está editando) */}
+      <EditCommentButton payload={payload} />
+
+      {/* Eliminar (lote completo o simple) */}
+      <DeleteButton payload={payload} onClose={onClose} />
+    </div>
+  );
+};
+
+
+const EditCommentButton = ({ payload }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(payload.type === "lote" ? payload.items[0]?.comentario || "" : payload.item?.comentario || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+
+      if (payload.type === "lote") {
+        // PATCH a todos los ítems del lote
+        const resps = await Promise.all(
+          payload.items.map((p) =>
+            fetchWithToken(`${API_URL}/inventarios/${p.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ comentario: value }),
+            })
+          )
+        );
+        const allOk = resps.every((r) => r && r.ok);
+        if (!allOk) throw new Error("Alguna actualización falló");
+      } else {
+        // PATCH a un solo inventario (entrada/salida)
+        const resp = await fetchWithToken(`${API_URL}/inventarios/${payload.item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ comentario: value }),
+        });
+        if (!resp || !resp.ok) throw new Error("Actualización falló");
+      }
+
+      setEditing(false);
+      alert("Comentario actualizado correctamente.");
+      window.location.reload(); // refresca los datos desde el servidor
+    } catch (err) {
+      alert("Error al actualizar el comentario.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+  return (
+    <div className="flex items-center gap-2">
+      {!editing ? (
+        <button
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 px-3 py-1 rounded-md hover:bg-yellow-200"
+        >
+          <Edit2 size={16} /> Editar comentario
+        </button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            className="border rounded-md px-2 py-1 text-sm"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={saving}
+          />
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-1 bg-green-600 text-white px-3 py-1 rounded-md hover:bg-green-700"
+          >
+            <Check size={16} /> Guardar
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+const DeleteButton = ({ payload, onClose }) => {
+  const handleDelete = async () => {
+    if (!window.confirm("¿Estás seguro de eliminar este registro?")) return;
+    try {
+      if (payload.type === "lote") {
+        // Eliminar todos los items del lote
+        await Promise.all(
+          payload.items.map((p) =>
+            fetchWithToken(`${API_URL}/inventarios/${p.id}`, {
+              method: "DELETE",
+            })
+          )
+        );
+      } else {
+        // Eliminar uno solo
+        await fetchWithToken(`${API_URL}/inventarios/${payload.item.id}`, {
+          method: "DELETE",
+        });
+      }
+      alert("Eliminado correctamente.");
+      onClose();
+      window.location.reload();
+    } catch (err) {
+      alert("Error al eliminar.");
+    }
+  };
+
+  return (
+    <button
+      onClick={handleDelete}
+      className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200"
+    >
+      <Trash2 size={16} /> Eliminar
+    </button>
+  );
+};
+
 
 const DetailSingle = ({ item, userName }) => {
   const tipo = (item.tipo_inventario_nombre || "").toLowerCase();
