@@ -311,6 +311,15 @@ const Box = ({ label, value, danger = false }) => (
   </div>
 );
 
+const CommentBlock = ({ title = "Comentario", text }) => (
+  <div className="border rounded-lg px-3 py-2">
+    <div className="font-semibold text-gray-700 mb-1">{title}</div>
+    <div className="text-gray-900 whitespace-pre-wrap">
+      {text && String(text).trim() !== "" ? text : "—"}
+    </div>
+  </div>
+);
+
 const DetailModal = ({ onClose, payload, userName }) => {
   if (!payload) return null;
 
@@ -418,9 +427,9 @@ const EditCommentButton = ({ payload }) => {
         </button>
       ) : (
         <div className="flex items-center gap-2">
-          <input
-            type="text"
-            className="border rounded-md px-2 py-1 text-sm"
+          <textarea
+            rows={4}
+            className="border rounded-md px-3 py-2 text-sm w-full max-w-xl resize-y"
             value={value}
             onChange={(e) => setValue(e.target.value)}
             disabled={saving}
@@ -514,7 +523,7 @@ const DetailSingle = ({ item, userName }) => {
       )}
 
       <div>
-        <Box label="Comentario" value={item.comentario || "—"} />
+        <CommentBlock title="Comentario" text={item.comentario} />
       </div>
     </div>
   );
@@ -569,7 +578,7 @@ const DetailLote = ({ items, userName }) => {
         </div>
         {/* Comentario del lote (una sola vez) */}
         <div className="mt-4">
-          <Box label="Comentario del lote" value={loteComment} />
+          <CommentBlock title="Comentario" text={loteComment} />
         </div>
       </div>
     </div>
