@@ -65,8 +65,39 @@ useEffect(() => {
     if (refresh) localStorage.setItem("refresh_token", refresh);
 
     const decoded = jwt_decode(access);
+    console.log("Token JWT decodificado (Google OAuth):", decoded);
     localStorage.setItem("userRole", decoded.rol);
+    localStorage.setItem("userEmail", decoded.email);
+    localStorage.setItem("userName", decoded.nombre);
+    window.dispatchEvent(new Event("userChanged"));
+
+    (async () => {
+      try {
+        const usuarios = await getUsers(); // 🔹 Trae la lista de usuarios
+        const current =
+          usuarios.find((x) => x.email === (decoded.email || decoded.nombre)) ||
+          usuarios.find((x) => x.id === (decoded.user_id || decoded.nombre));
+
+        if (current) {
+                    localStorage.setItem("user", JSON.stringify({
+            id: decoded.user_id,
+            email: decoded.email ,
+            nombre: decoded.nombre ,
+            rol: decoded.rol,
+            rol_nombre: decoded.rol, // ⚠ importante para tu Header
+            avatar: decoded.avatar || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+          }));
+
+        }
+      } catch (e) {
+        console.warn("No se pudo cachear el usuario:", e);
+      }
+    })();
+
+    
+  
     setUserRole(decoded.rol);
+
 
     navigate(decoded.rol === "Administrador" ? "/admin" : "/worker");
 
