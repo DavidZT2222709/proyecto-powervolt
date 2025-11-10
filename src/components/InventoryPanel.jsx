@@ -215,11 +215,17 @@ const InventoryPanel = () => {
     setModal({ open: true, type, product });
     if (type === "edit" && product) {
       setNewProduct({
-        ...product, // Copia todos los valores del producto existente
-        sucursal: product.sucursal, // Fija el valor de sucursal al original
-        imagen: product.imagen || "", // Mantiene la imagen como URL o vacía
+        // usa IDs si existen; si no, cae al valor que venga del backend
+        marca: product.marca_id ?? product.marca ?? "",
+        sucursal: product.sucursal_id ?? product.sucursal ?? "",
+        caja: product.caja ?? "",
+        amperaje: product.amperaje ?? "",
+        polaridad: product.polaridad ?? "",
+        voltaje: product.voltaje ?? "",
+        stock: product.stock ?? "",
+        imagen: "", // para no precargar la URL como File
       });
-    } else if (type === "add") {
+    }else if (type === "add") {
       setNewProduct({ caja: "", amperaje: "", polaridad: "", voltaje: "", stock: "", imagen: "", marca: "", sucursal: "" });
     }
     if (type === "addfast" && product) {
@@ -244,54 +250,101 @@ const InventoryPanel = () => {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    const formData = new FormData();
-    formData.append('caja', newProduct.caja);
-    formData.append('amperaje', parseInt(newProduct.amperaje, 10) || 0);
-    formData.append('polaridad', newProduct.polaridad);
-    formData.append('voltaje', parseInt(newProduct.voltaje, 10) || 0);
-    formData.append('stock', parseInt(newProduct.stock, 10) || 0);
-    formData.append('marca', parseInt(newProduct.marca, 10) || 0);
-    // No agregar formData.append('sucursal', ...) en modo edit
-
-    if (newProduct.imagen && newProduct.imagen instanceof File) {
-      formData.append('imagen', newProduct.imagen);
-    }
-
-    let url = `${API_URL}/productos/`;
-    let method = "POST";
-
-    if (modal.type === "edit") {
-      url += `${modal.product.id}`;
-      method = "PUT";
-      // En modo edit, solo enviamos los campos que se pueden modificar
-    } else if (modal.type === "add") {
-      formData.append('sucursal', parseInt(newProduct.sucursal, 10) || 0); // Solo para agregar
-    }
-
     try {
-      const response = await fetch(url, {
-        method,
-        body: formData,
-      });
+      const urlBase = `${API_URL}/productos/`;
+      const method = "POST";
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${await response.text()}`);
+      if (modal.type === "edit") {
+        // ===== EDITAR =====
+        const formData = new FormData();
+        formData.append("caja", newProduct.caja);
+        formData.append("amperaje", parseInt(newProduct.amperaje, 10) || 0);
+        formData.append("polaridad", newProduct.polaridad);
+        formData.append("voltaje", parseInt(newProduct.voltaje, 10) || 0);
+        formData.append("stock", parseInt(newProduct.stock, 10) || 0);
+        formData.append("marca", parseInt(newProduct.marca, 10) || 0);
+        formData.append("sucursal_id", parseInt(newProduct.sucursal, 10) || 0);
+
+        if (newProduct.imagen && newProduct.imagen instanceof File) {
+          formData.append("imagen", newProduct.imagen);
+        }
+
+        const url = `${urlBase}${modal.product.id}`;
+        const response = await fetchWithToken(url, { method: "PUT", body: formData });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        setProducts((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+        await fetchProducts();
+        closeModal();
+        return;
       }
 
-      const data = await response.json();
-
-      if (modal.type === "add") {
-        setProducts([...products, data]);
-      } else if (modal.type === "edit") {
-        setProducts(products.map((p) => (p.id === data.id ? data : p)));
+      // ===== AGREGAR =====
+      if (!newProduct.marca) {
+        alert("Selecciona una marca.");
+        return;
+      }
+      if (!newProduct.sucursal) {
+        alert("Selecciona la sucursal (o 'Ambas sucursales').");
+        return;
       }
 
+      // Destinos: una sucursal o todas (ambas)
+      let targetSucursalIds = [];
+      if (newProduct.sucursal === "ambas") {
+        targetSucursalIds = sucursales.map((s) => s.id);
+        if (targetSucursalIds.length === 0) {
+          alert("No hay sucursales configuradas para crear el producto.");
+          return;
+        }
+      } else {
+        const parsed = parseInt(newProduct.sucursal, 10);
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          alert("Sucursal inválida.");
+          return;
+        }
+        targetSucursalIds = [parsed];
+      }
+
+      // Un POST por cada sucursal seleccionada
+      const createdProducts = [];
+      for (const sucId of targetSucursalIds) {
+        const formData = new FormData();
+        formData.append("caja", newProduct.caja);
+        formData.append("amperaje", parseInt(newProduct.amperaje, 10) || 0);
+        formData.append("polaridad", newProduct.polaridad);
+        formData.append("voltaje", parseInt(newProduct.voltaje, 10) || 0);
+        formData.append("stock", parseInt(newProduct.stock, 10) || 0);
+        formData.append("marca", parseInt(newProduct.marca, 10) || 0);
+        formData.append("sucursal_id", sucId);
+
+        if (newProduct.imagen && newProduct.imagen instanceof File) {
+          formData.append("imagen", newProduct.imagen);
+        }
+
+        const response = await fetchWithToken(urlBase, { method, body: formData });
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+        const data = await response.json();
+        createdProducts.push(data);
+      }
+
+      if (createdProducts.length > 0) {
+        setProducts((prev) => [...prev, ...createdProducts]);
+      }
       await fetchProducts();
       closeModal();
     } catch (error) {
       console.error(`Error ${modal.type === "add" ? "creating" : "updating"} product:`, error);
+      alert("Ocurrió un error al guardar. Revisa la consola para más detalles.");
     }
   };
+
 
   const handleQuickEntry = async (e) => {
     e.preventDefault();
@@ -744,7 +797,49 @@ const InventoryPanel = () => {
                     ))}
                   </select>
                 </div>
-                {/* Eliminamos el <div> de Sucursal completamente */}
+                
+                {modal.type === "edit" && (
+                  <div>
+                    <label className="block text-gray-700 font-medium">Sucursal</label>
+                    <select
+                      name="sucursal"
+                      value={newProduct.sucursal}
+                      onChange={handleChange}
+                      className="w-full border rounded-lg p-2 mt-1"
+                      required
+                    >
+                      <option value="">Seleccionar sucursal...</option>
+                      {sucursales.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                      {/* En EDITAR no mostramos "Ambas sucursales" */}
+                    </select>
+                  </div>
+                )}
+
+                {modal.type === "add" && (
+                  <div>
+                    <label className="block text-gray-700 font-medium">Sucursal</label>
+                    <select
+                      name="sucursal"
+                      value={newProduct.sucursal}
+                      onChange={handleChange}
+                      className="w-full border rounded-lg p-2 mt-1"
+                      required
+                    >
+                      <option value="">Seleccionar sucursal...</option>
+                      {sucursales.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                      <option value="ambas">Ambas sucursales</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-gray-700 font-medium">Caja</label>
                   <input

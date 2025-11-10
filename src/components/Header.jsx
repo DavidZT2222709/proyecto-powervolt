@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Home, User, LogOut, Edit3 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getUsers, getRoles } from "../api/usuarios";
+import { getSucursales } from "../api/sucursales";
+import { useSucursal } from "../context/SucursalContext";
 
-function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
-
+function Header() {
 
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
@@ -11,24 +13,103 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const { selectedSucursal, setSelectedSucursal } = useSucursal();
+  const [sucursales, setSucursales] = useState([]);
+
 
   const [profileData, setProfileData] = useState({
-    name: userName,
-    email: "pepito@powerstock.com",
+    name: "",
+    email: "",
+    role: "",
+    sucursalNombre: "", // si luego la traes de otro endpoint, aquí cae
     password: "",
     avatar: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
   });
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > lastScrollY && window.scrollY > 80) setVisible(false);
-      else setVisible(true);
-      setLastScrollY(window.scrollY);
-    };
+    const cachedStr = localStorage.getItem("user");      // snapshot guardado en el paso 1
+    const emailActual = localStorage.getItem("userEmail") || "";
+    const roleCache   = localStorage.getItem("userRole") || "Usuario";
 
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, [lastScrollY]);
+    // 1) Pintar inmediatamente desde cache si existe
+    if (cachedStr) {
+      try {
+        const u = JSON.parse(cachedStr);
+        setProfileData((prev) => ({
+          ...prev,
+          name: u.nombre || u.username || "",
+          email: u.email || "",
+          role: u.rol_nombre || roleCache,          // si no hay nombre de rol, lo completamos abajo
+          sucursalNombre: u.sucursal_nombre || "",  // si tu API lo trae
+        }));
+      } catch {}
+    } else {
+      // sin cache, al menos deja el rol que ya tenías
+      setProfileData((prev) => ({ ...prev, role: roleCache }));
+    }
+
+    // 2) Enriquecer/validar con roles + lista actual (para mapear rol id -> nombre)
+    let rolesMap = {};
+    getRoles()
+      .then((roles) => {
+        rolesMap = roles.reduce((acc, r) => {
+          acc[String(r.id)] = r.nombre;
+          return acc;
+        }, {});
+      })
+      .catch(() => {})
+      .finally(() => {
+        getUsers()
+          .then((usuarios) => {
+            // usa el cache si lo había; si no, busca por email/username
+            let u = null;
+            try { u = cachedStr ? JSON.parse(cachedStr) : null; } catch {}
+            if (!u) {
+              u =
+                usuarios.find((x) => x.email === emailActual) ||
+                usuarios.find((x) => x.username === emailActual);
+            }
+
+            if (u) {
+              setProfileData((prev) => ({
+                ...prev,
+                name: u.nombre || u.username || prev.name || "Usuario",
+                email: u.email || prev.email || "",
+                role: rolesMap[String(u.rol)] || u.rol_nombre || prev.role || "Usuario",
+                sucursalNombre: u.sucursal_nombre || prev.sucursalNombre || "",
+              }));
+              // refresca cache para próximas cargas
+              localStorage.setItem("user", JSON.stringify(u));
+              if (u.rol_nombre) localStorage.setItem("userRole", u.rol_nombre);
+            }
+          })
+          .catch(() => {});
+      });
+  }, []);
+
+  // === NUEVO useEffect para cargar las sucursales ===
+  useEffect(() => {
+    let mounted = true;
+
+    getSucursales()
+      .then((data) => {
+        if (!mounted) return; // Evita actualizar si el componente ya fue desmontado
+        setSucursales(data || []); // Guarda la lista completa
+
+        // Si no hay ninguna seleccionada todavía
+        if (!selectedSucursal && data && data.length > 0) {
+          setSelectedSucursal(data[0]); // Selecciona la primera como predeterminada
+        }
+      })
+      .catch((err) => {
+        console.warn("❌ No se pudieron cargar las sucursales:", err);
+      });
+
+    return () => {
+      mounted = false; // limpieza del efecto
+    };
+  }, [selectedSucursal, setSelectedSucursal]);
+
 
   const navigate = useNavigate();
 
@@ -36,6 +117,9 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("userRole");
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("user");
+    localStorage.removeItem("selected_sucursal");
     navigate("/", { replace: true }); 
   };
 
@@ -46,12 +130,12 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
 
   // Estilos condicionales por rol
   const roleStyles =
-    userRole === "Administrador"
+    profileData.role === "Administrador"
       ? "bg-white text-gray-800 border border-gray-300"
       : "bg-yellow-50 border border-yellow-200 text-yellow-800";
 
   const roleTextColor =
-    userRole === "Administrador" ? "text-gray-500" : "text-yellow-600";
+    profileData.role === "Administrador" ? "text-gray-500" : "text-yellow-600";
 
   return (
     <>
@@ -68,17 +152,30 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
             className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center shadow-md hover:shadow-lg transition-shadow"
           >
             <Home className="mr-2" size={16} />
-            Piedecuesta <span className="ml-2">▼</span>
+            {(selectedSucursal && selectedSucursal.nombre) || "Sucursal"} <span className="ml-2">▼</span>
           </button>
           {isLocationOpen && (
-            <div className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded-md p-2">
-              <ul>
-                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                  Opción 1
-                </li>
-                <li className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                  Opción 2
-                </li>
+            <div className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded-md p-2 min-w-[220px]">
+              <ul className="max-h-72 overflow-auto">
+                {sucursales.map((s) => (
+                  <li
+                    key={s.id}
+                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                    onClick={() => {
+                      setSelectedSucursal(s);        // guarda globalmente la sucursal seleccionada
+                      setIsLocationOpen(false);      // cierra el menú
+                    }}
+                  >
+                    <span>{s.nombre}</span>
+                    {selectedSucursal?.id === s.id && (
+                      <span className="text-blue-600 text-sm">✓</span>
+                    )}
+                  </li>
+                ))}
+
+                {sucursales.length === 0 && (
+                  <li className="px-4 py-2 text-gray-500">Sin sucursales</li>
+                )}
               </ul>
             </div>
           )}
@@ -91,8 +188,8 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
             className={`${roleStyles} px-4 py-2 rounded-md flex items-center shadow-md hover:shadow-lg transition-shadow`}
           >
             <User className="mr-2" size={16} />
-            <span className="font-bold">{profileData.name}</span>
-            <span className={`ml-2 ${roleTextColor}`}>{userRole}</span>
+            <span className="font-bold">{profileData.name || "Usuario"}</span>
+            <span className={`ml-2 ${roleTextColor}`}>{profileData.role || "Usuario"}</span>
             <img
               src={profileData.avatar}
               alt="Avatar"

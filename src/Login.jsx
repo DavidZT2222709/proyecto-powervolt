@@ -11,7 +11,9 @@ import {
 import { Mail, Key, CheckCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
-import { loginUser, passwordReset,passwordConfirm} from "./api/auth";
+import { loginUser, passwordReset, passwordConfirm } from "./api/auth";
+import { getUsers } from "./api/usuarios";
+
 
 // ---------------- LOGIN PAGE ----------------
 const LoginPage = () => {
@@ -78,31 +80,44 @@ useEffect(() => {
 const handleLogin = async (e) => {
   e.preventDefault();
   try {
+    // Login
     const data = await loginUser(email, password);
 
-    // Guardamos tokens
+    // Guardar tokens
     localStorage.setItem("access_token", data.access);
     localStorage.setItem("refresh_token", data.refresh);
-  
 
-    // Decodificar token para rol
+    // Decodificar token para leer claims
     const payload = JSON.parse(atob(data.access.split(".")[1]));
     console.log("Token decodificado:", payload);
 
-    localStorage.setItem("userEmail", payload.rol);
+    // Guardar rol y email/username
+    const roleFromToken = payload.rol || "Usuario";
+    localStorage.setItem("userRole", roleFromToken);
+    localStorage.setItem("userEmail", payload.email || payload.username || email);
 
-    
+    // Traer la lista y cachear el usuario actual por email/username
+    try {
+      const usuarios = await getUsers(); // usa fetchWithToken internamente
+      const current =
+        usuarios.find((x) => x.email === (payload.email || email)) ||
+        usuarios.find((x) => x.username === (payload.username || email));
+
+      if (current) {
+        localStorage.setItem("user", JSON.stringify(current));
+      }
+    } catch (e) {
+      console.warn("No se pudo cachear el usuario:", e);
+      // no es fatal; el Header igual intentará resolver con lo que haya
+    }
 
     // Redirigir según el rol
-    if (payload.rol === "Administrador") {
-      navigate("/admin");
-    } else {
-      navigate("/worker");
-    }
+    navigate(roleFromToken === "Administrador" ? "/admin" : "/worker");
   } catch (err) {
     alert("❌ " + err.message);
   }
 };
+
 
 const [loading, setLoading] = useState(false); // para que quede cargando y el usuario no haga doble click
 
