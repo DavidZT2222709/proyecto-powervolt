@@ -11,7 +11,9 @@ import {
 import { Mail, Key, CheckCircle } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 
-import { loginUser, passwordReset,passwordConfirm} from "./api/auth";
+import { loginUser, passwordReset, passwordConfirm } from "./api/auth";
+import { getUsers } from "./api/usuarios";
+
 
 // ---------------- LOGIN PAGE ----------------
 const LoginPage = () => {
@@ -63,8 +65,39 @@ useEffect(() => {
     if (refresh) localStorage.setItem("refresh_token", refresh);
 
     const decoded = jwt_decode(access);
+    console.log("Token JWT decodificado (Google OAuth):", decoded);
     localStorage.setItem("userRole", decoded.rol);
+    localStorage.setItem("userEmail", decoded.email);
+    localStorage.setItem("userName", decoded.nombre);
+    window.dispatchEvent(new Event("userChanged"));
+
+    (async () => {
+      try {
+        const usuarios = await getUsers(); // 🔹 Trae la lista de usuarios
+        const current =
+          usuarios.find((x) => x.email === (decoded.email || decoded.nombre)) ||
+          usuarios.find((x) => x.id === (decoded.user_id || decoded.nombre));
+
+        if (current) {
+                    localStorage.setItem("user", JSON.stringify({
+            id: decoded.user_id,
+            email: decoded.email ,
+            nombre: decoded.nombre ,
+            rol: decoded.rol,
+            rol_nombre: decoded.rol, // ⚠ importante para tu Header
+            avatar: decoded.avatar || "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
+          }));
+
+        }
+      } catch (e) {
+        console.warn("No se pudo cachear el usuario:", e);
+      }
+    })();
+
+    
+  
     setUserRole(decoded.rol);
+
 
     navigate(decoded.rol === "Administrador" ? "/admin" : "/worker");
 
@@ -78,31 +111,44 @@ useEffect(() => {
 const handleLogin = async (e) => {
   e.preventDefault();
   try {
+    // Login
     const data = await loginUser(email, password);
 
-    // Guardamos tokens
+    // Guardar tokens
     localStorage.setItem("access_token", data.access);
     localStorage.setItem("refresh_token", data.refresh);
-  
 
-    // Decodificar token para rol
+    // Decodificar token para leer claims
     const payload = JSON.parse(atob(data.access.split(".")[1]));
     console.log("Token decodificado:", payload);
 
-    localStorage.setItem("userEmail", payload.rol);
+    // Guardar rol y email/username
+    const roleFromToken = payload.rol || "Usuario";
+    localStorage.setItem("userRole", roleFromToken);
+    localStorage.setItem("userEmail", payload.email || payload.username || email);
 
-    
+    // Traer la lista y cachear el usuario actual por email/username
+    try {
+      const usuarios = await getUsers(); // usa fetchWithToken internamente
+      const current =
+        usuarios.find((x) => x.email === (payload.email || email)) ||
+        usuarios.find((x) => x.username === (payload.username || email));
+
+      if (current) {
+        localStorage.setItem("user", JSON.stringify(current));
+      }
+    } catch (e) {
+      console.warn("No se pudo cachear el usuario:", e);
+      // no es fatal; el Header igual intentará resolver con lo que haya
+    }
 
     // Redirigir según el rol
-    if (payload.rol === "Administrador") {
-      navigate("/admin");
-    } else {
-      navigate("/worker");
-    }
+    navigate(roleFromToken === "Administrador" ? "/admin" : "/worker");
   } catch (err) {
     alert("❌ " + err.message);
   }
 };
+
 
 const [loading, setLoading] = useState(false); // para que quede cargando y el usuario no haga doble click
 
@@ -333,19 +379,19 @@ const handlePasswordConfirm = async (e) => {
                     <div>
                       <label htmlFor="token">Token</label>
                       <input id="token" type="text" value={token} onChange={(e) => setToken(e.target.value)} className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 
-                                   shadow-[0_6px_15px_rgba(125,211,252,0.6)]
-                                   hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
-                                   transition-all duration-200 ease-in-out
-                                   focus:outline-none focus:ring-2 focus:ring-blue-400" required />
+                                  shadow-[0_6px_15px_rgba(125,211,252,0.6)]
+                                  hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
+                                  transition-all duration-200 ease-in-out
+                                  focus:outline-none focus:ring-2 focus:ring-blue-400" required />
                     </div>
                
                   <div>
                     <label htmlFor="newPassword">Nueva contraseña</label>
                     <input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full pl-10 pr-3 py-4 rounded-2xl bg-white border border-gray-200 
-                                   shadow-[0_6px_15px_rgba(125,211,252,0.6)]
-                                   hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
-                                   transition-all duration-200 ease-in-out
-                                   focus:outline-none focus:ring-2 focus:ring-blue-400"  required />
+                                  shadow-[0_6px_15px_rgba(125,211,252,0.6)]
+                                  hover:shadow-[0_8px_20px_rgba(125,211,252,0.8)]
+                                  transition-all duration-200 ease-in-out
+                                  focus:outline-none focus:ring-2 focus:ring-blue-400"  required />
                   </div>
                   <button type="submit" className="w-full py-4 text-xl bg-gradient-to-r from-blue-700 to-blue-400 text-white font-bold rounded-2xl hover:scale-[1.03] transition-transform duration-200 shadow-md">Restablecer contraseña</button>
                 </form>
@@ -366,6 +412,4 @@ const handlePasswordConfirm = async (e) => {
     </div>
   );
 };
-
-
 export default LoginPage;

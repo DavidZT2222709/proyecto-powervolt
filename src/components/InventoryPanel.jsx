@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { fetchWithToken } from "../api/fetchWithToken.js";
+import { useSucursal } from "../context/SucursalContext";
+
 import {
   PlusCircle,
   MinusCircle,
@@ -13,6 +15,44 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:8000/api";
+
+
+//////////////////////////////////////////////////
+// === Helpers para obtener el id del usuario de forma simple ===
+function getUserIdFromJWT(token) {
+  try {
+    // Decodifica el payload del JWT (base64url)
+    const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(base64));
+    return payload.user_id || payload.id || payload.sub || null;
+  } catch {
+    return null;
+  }
+}
+
+function getCurrentUserId() {
+  // ¿Hay un objeto "user" en localStorage con .id?
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user?.id) return user.id;
+  } catch {}
+
+  // ¿Hay algún token JWT? (ajusta los nombres si se usan otros)
+  const token =
+    localStorage.getItem("access") ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("token");
+
+  if (token) {
+    const uid = getUserIdFromJWT(token);
+    if (uid) return uid;
+  }
+
+  // No se encontró
+  return null;
+}
+//////////////////////////////////////////////////
+
 
 const InventoryPanel = () => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
@@ -43,6 +83,14 @@ const InventoryPanel = () => {
   // Productos agregados al listado de inventario (cajita)
   const [selectedInventory, setSelectedInventory] = useState([]);
 
+  // Contexto de sucursal seleccionada
+  const { selectedSucursal } = useSucursal();
+  // Usuario actual (intenta user.id o decodifica el JWT)
+  const [currentUserId, setCurrentUserId] = useState(getCurrentUserId());
+  useEffect(() => {
+    setCurrentUserId(getCurrentUserId());
+  }, []);
+
 
   const [newProduct, setNewProduct] = useState({
     caja: "",
@@ -58,7 +106,12 @@ const InventoryPanel = () => {
   // Función para obtener productos desde la API
   const fetchProducts = async () => {
     try {
-      const response = await fetchWithToken(`${API_URL}/productos/`);
+      const sucursal = selectedSucursal?.nombre; // ← obtén la sucursal
+      const url = sucursal
+        ? `${API_URL}/productos/?sucursal=${encodeURIComponent(sucursal)}`
+        : `${API_URL}/productos/`;
+
+      const response = await fetchWithToken(url);
       const data = await response.json();
       setProducts(data);
     } catch (error) {
@@ -170,9 +223,14 @@ const InventoryPanel = () => {
       }
 
       try {
+        const sucursal = selectedSucursal?.nombre; // la sucursal actual
         let url = `${API_URL}/productos/?q=${encodeURIComponent(searchTerm)}`;
+
         if (selectedMarca) {
           url += `&marca=${selectedMarca}`;
+        }
+        if (sucursal) {
+          url += `&sucursal=${encodeURIComponent(sucursal)}`;
         }
 
         const response = await fetchWithToken(url);
@@ -185,7 +243,8 @@ const InventoryPanel = () => {
 
     const delayDebounce = setTimeout(fetchSearchResults, 400);
     return () => clearTimeout(delayDebounce);
-  }, [searchTerm, selectedMarca]);
+  }, [searchTerm, selectedMarca, selectedSucursal]);
+
 
   // Función para obtener tipos de inventario desde la API
   const fetchTiposInventario = async () => {
@@ -198,9 +257,13 @@ const InventoryPanel = () => {
     }
   };
 
-  // Efecto para cargar productos, marcas y sucursales al montar el componente
+  // Efecto para cargar productos y actualizar al cambiar de sucursal
   useEffect(() => {
     fetchProducts();
+  }, [selectedSucursal]);
+
+  // Solo se cargan una vez marcas, sucursales y tipos de inventario
+  useEffect(() => {
     fetchMarcas();
     fetchSucursales();
     fetchTiposInventario();
@@ -215,11 +278,17 @@ const InventoryPanel = () => {
     setModal({ open: true, type, product });
     if (type === "edit" && product) {
       setNewProduct({
-        ...product, // Copia todos los valores del producto existente
-        sucursal: product.sucursal, // Fija el valor de sucursal al original
-        imagen: product.imagen || "", // Mantiene la imagen como URL o vacía
+        // usa IDs si existen; si no, cae al valor que venga del backend
+        marca: product.marca_id ?? product.marca ?? "",
+        sucursal: product.sucursal_id ?? product.sucursal ?? "",
+        caja: product.caja ?? "",
+        amperaje: product.amperaje ?? "",
+        polaridad: product.polaridad ?? "",
+        voltaje: product.voltaje ?? "",
+        stock: product.stock ?? "",
+        imagen: "", // para no precargar la URL como File
       });
-    } else if (type === "add") {
+    }else if (type === "add") {
       setNewProduct({ caja: "", amperaje: "", polaridad: "", voltaje: "", stock: "", imagen: "", marca: "", sucursal: "" });
     }
     if (type === "addfast" && product) {
@@ -244,54 +313,101 @@ const InventoryPanel = () => {
   const handleSave = async (e) => {
     e.preventDefault();
 
-    const formData = new FormData();
-    formData.append('caja', newProduct.caja);
-    formData.append('amperaje', parseInt(newProduct.amperaje, 10) || 0);
-    formData.append('polaridad', newProduct.polaridad);
-    formData.append('voltaje', parseInt(newProduct.voltaje, 10) || 0);
-    formData.append('stock', parseInt(newProduct.stock, 10) || 0);
-    formData.append('marca', parseInt(newProduct.marca, 10) || 0);
-    // No agregar formData.append('sucursal', ...) en modo edit
-
-    if (newProduct.imagen && newProduct.imagen instanceof File) {
-      formData.append('imagen', newProduct.imagen);
-    }
-
-    let url = `${API_URL}/productos/`;
-    let method = "POST";
-
-    if (modal.type === "edit") {
-      url += `${modal.product.id}`;
-      method = "PUT";
-      // En modo edit, solo enviamos los campos que se pueden modificar
-    } else if (modal.type === "add") {
-      formData.append('sucursal', parseInt(newProduct.sucursal, 10) || 0); // Solo para agregar
-    }
-
     try {
-      const response = await fetch(url, {
-        method,
-        body: formData,
-      });
+      const urlBase = `${API_URL}/productos/`;
+      const method = "POST";
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${await response.text()}`);
+      if (modal.type === "edit") {
+        // ===== EDITAR =====
+        const formData = new FormData();
+        formData.append("caja", newProduct.caja);
+        formData.append("amperaje", parseInt(newProduct.amperaje, 10) || 0);
+        formData.append("polaridad", newProduct.polaridad);
+        formData.append("voltaje", parseInt(newProduct.voltaje, 10) || 0);
+        formData.append("stock", parseInt(newProduct.stock, 10) || 0);
+        formData.append("marca", parseInt(newProduct.marca, 10) || 0);
+        formData.append("sucursal_id", parseInt(newProduct.sucursal, 10) || 0);
+
+        if (newProduct.imagen && newProduct.imagen instanceof File) {
+          formData.append("imagen", newProduct.imagen);
+        }
+
+        const url = `${urlBase}${modal.product.id}`;
+        const response = await fetchWithToken(url, { method: "PUT", body: formData });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+
+        const data = await response.json();
+        setProducts((prev) => prev.map((p) => (p.id === data.id ? data : p)));
+        await fetchProducts();
+        closeModal();
+        return;
       }
 
-      const data = await response.json();
-
-      if (modal.type === "add") {
-        setProducts([...products, data]);
-      } else if (modal.type === "edit") {
-        setProducts(products.map((p) => (p.id === data.id ? data : p)));
+      // ===== AGREGAR =====
+      if (!newProduct.marca) {
+        alert("Selecciona una marca.");
+        return;
+      }
+      if (!newProduct.sucursal) {
+        alert("Selecciona la sucursal (o 'Ambas sucursales').");
+        return;
       }
 
+      // Destinos: una sucursal o todas (ambas)
+      let targetSucursalIds = [];
+      if (newProduct.sucursal === "ambas") {
+        targetSucursalIds = sucursales.map((s) => s.id);
+        if (targetSucursalIds.length === 0) {
+          alert("No hay sucursales configuradas para crear el producto.");
+          return;
+        }
+      } else {
+        const parsed = parseInt(newProduct.sucursal, 10);
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          alert("Sucursal inválida.");
+          return;
+        }
+        targetSucursalIds = [parsed];
+      }
+
+      // Un POST por cada sucursal seleccionada
+      const createdProducts = [];
+      for (const sucId of targetSucursalIds) {
+        const formData = new FormData();
+        formData.append("caja", newProduct.caja);
+        formData.append("amperaje", parseInt(newProduct.amperaje, 10) || 0);
+        formData.append("polaridad", newProduct.polaridad);
+        formData.append("voltaje", parseInt(newProduct.voltaje, 10) || 0);
+        formData.append("stock", parseInt(newProduct.stock, 10) || 0);
+        formData.append("marca", parseInt(newProduct.marca, 10) || 0);
+        formData.append("sucursal_id", sucId);
+
+        if (newProduct.imagen && newProduct.imagen instanceof File) {
+          formData.append("imagen", newProduct.imagen);
+        }
+
+        const response = await fetchWithToken(urlBase, { method, body: formData });
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${await response.text()}`);
+        }
+        const data = await response.json();
+        createdProducts.push(data);
+      }
+
+      if (createdProducts.length > 0) {
+        setProducts((prev) => [...prev, ...createdProducts]);
+      }
       await fetchProducts();
       closeModal();
     } catch (error) {
       console.error(`Error ${modal.type === "add" ? "creating" : "updating"} product:`, error);
+      alert("Ocurrió un error al guardar. Revisa la consola para más detalles.");
     }
   };
+
 
   const handleQuickEntry = async (e) => {
     e.preventDefault();
@@ -314,14 +430,15 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoEntrada?.id;
 
-      // Sucursal: temporalmente "Piedecuesta" (si no, toma la primera)
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal para la entrada.");
+        return;
+      }
+      if (!currentUserId) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
         return;
       }
 
@@ -334,7 +451,7 @@ const InventoryPanel = () => {
         conteo: (Number(producto.stock) || 0) + cantidadNum,
         ventas: 0,
         comentario: quickEntry.observacion || "",
-        usuario: 1, // temporal
+        usuario: currentUserId,
       };
 
       const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
@@ -390,14 +507,15 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoSalida?.id;
 
-      // sucursal: temporalmente "Piedecuesta" (si no existe, la primera)
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal para la salida.");
+        return;
+      }
+      if (!currentUserId) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
         return;
       }
 
@@ -408,7 +526,7 @@ const InventoryPanel = () => {
         conteo: (Number(producto.stock) || 0) - cantidadNum, // conteo = stock - ventas
         ventas: ventasCalculada,                 // ventas = stock - cantidad
         comentario: quickEntry.observacion || "",// opcional
-        usuario: 1,                              // temporal
+        usuario: currentUserId,
       };
 
       const resp = await fetchWithToken(`${API_URL}/inventarios/`, {
@@ -491,11 +609,8 @@ const InventoryPanel = () => {
       );
       const tipo_inventario_id = tipoInv ? tipoInv.id : undefined;
 
-      // sucursal: temporalmente "Piedecuesta"
-      const piedecuesta = (sucursales || []).find(
-        (s) => (s.nombre || "").toLowerCase().trim() === "piedecuesta"
-      );
-      const sucursal_id = piedecuesta ? piedecuesta.id : sucursales[0]?.id;
+      // Sucursal: usa la seleccionada en el contexto (fallback: primera)
+      const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
         alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
@@ -503,9 +618,15 @@ const InventoryPanel = () => {
         return;
       }
 
-      const usuario_id = 1;
+      // Usuario actual
+      const usuario_id = currentUserId;
+      if (!usuario_id) {
+        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
+        setPosting(false);
+        return;
+      }
 
-      // 🔹 1) Enviar todos los productos en un solo POST (lista)
+      // Enviar todos los productos en un solo POST (lista)
       const url = `${API_URL}/inventarios/`;
       const payloadList = selectedInventory.map((it) => ({
         tipo_inventario_id,
@@ -527,14 +648,14 @@ const InventoryPanel = () => {
         throw new Error(`Error ${resp.status}: ${await resp.text()}`);
       }
 
-      // 🔹 2) Leer respuesta para obtener el número de lote
+      // Leer respuesta para obtener el número de lote
       const created = await resp.json();
       const lote = created?.[0]?.lote_numero;
 
-      // 🔹 3) Mostrar mensaje indicando el lote
+      // Mostrar mensaje indicando el lote
       alert(`✅ Inventario generado exitosamente.\nLote #${lote}`);
 
-      // 🔹 4) Limpiar listado y recargar productos
+      // Limpiar listado y recargar productos
       setSelectedInventory([]);
       await fetchProducts();
 
@@ -744,7 +865,49 @@ const InventoryPanel = () => {
                     ))}
                   </select>
                 </div>
-                {/* Eliminamos el <div> de Sucursal completamente */}
+                
+                {modal.type === "edit" && (
+                  <div>
+                    <label className="block text-gray-700 font-medium">Sucursal</label>
+                    <select
+                      name="sucursal"
+                      value={newProduct.sucursal}
+                      onChange={handleChange}
+                      className="w-full border rounded-lg p-2 mt-1"
+                      required
+                    >
+                      <option value="">Seleccionar sucursal...</option>
+                      {sucursales.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                      {/* En EDITAR no mostramos "Ambas sucursales" */}
+                    </select>
+                  </div>
+                )}
+
+                {modal.type === "add" && (
+                  <div>
+                    <label className="block text-gray-700 font-medium">Sucursal</label>
+                    <select
+                      name="sucursal"
+                      value={newProduct.sucursal}
+                      onChange={handleChange}
+                      className="w-full border rounded-lg p-2 mt-1"
+                      required
+                    >
+                      <option value="">Seleccionar sucursal...</option>
+                      {sucursales.map((s) => (
+                        <option key={s.id} value={String(s.id)}>
+                          {s.nombre}
+                        </option>
+                      ))}
+                      <option value="ambas">Ambas sucursales</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-gray-700 font-medium">Caja</label>
                   <input
