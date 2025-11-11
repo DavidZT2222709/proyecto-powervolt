@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Home, User, LogOut, Edit3 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
-
-
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
   const [visible, setVisible] = useState(true);
@@ -30,14 +27,7 @@ function Header({ userRole = "Administrador", userName = "Pepito Perez" }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("userRole");
-    navigate("/", { replace: true }); 
-  };
+  const handleLogout = () => (window.location.href = "/");
 
   const handleProfileSave = () => {
     alert("Información actualizada correctamente ✅");
