@@ -5,11 +5,15 @@ import { getUsers, getRoles } from "../api/usuarios";
 import { getSucursales } from "../api/sucursales";
 import { useSucursal } from "../context/SucursalContext";
 
+const EMPTY_LABEL = "Sucursales";
+const LS_SELECTED = "selected_sucursal";
+
 function Header() {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
@@ -18,11 +22,86 @@ function Header() {
     password: "",
     avatar: "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
   });
+
   const { selectedSucursal, setSelectedSucursal } = useSucursal();
   const [sucursales, setSucursales] = useState([]);
   const navigate = useNavigate();
 
-  // --- Función simplificada para cargar datos del usuario ---
+  // ---------- UTIL: persistir/limpiar selección ----------
+  const persistSelected = (s) => {
+    if (s && s.id != null) localStorage.setItem(LS_SELECTED, String(s.id));
+    else localStorage.removeItem(LS_SELECTED);
+  };
+
+  // ---------- Cargar/Refrescar sucursales con lógica de selección ----------
+  const refreshSucursales = async (opts = {}) => {
+    try {
+      const list = (await getSucursales()) || [];
+      setSucursales(list);
+
+      const savedId = localStorage.getItem(LS_SELECTED);
+
+      // Si no hay ninguna en BD
+      if (list.length === 0) {
+        if (selectedSucursal) setSelectedSucursal(null);
+        persistSelected(null);
+        return;
+      }
+
+      // Si se pasa deletedId y coincide con la seleccionada -> limpiar primero
+      if (
+        opts.deletedId &&
+        selectedSucursal &&
+        Number(selectedSucursal.id) === Number(opts.deletedId)
+      ) {
+        // Si hay más, tomar la primera; si no, limpiar
+        const next = list[0] || null;
+        setSelectedSucursal(next);
+        persistSelected(next);
+        return;
+      }
+
+      // Si hay guardada en localStorage y existe aún -> úsala
+      if (savedId) {
+        const found = list.find((s) => String(s.id) === String(savedId));
+        if (found) {
+          if (!selectedSucursal || String(selectedSucursal.id) !== String(found.id)) {
+            setSelectedSucursal(found);
+          }
+          persistSelected(found);
+          return;
+        }
+      }
+
+      // Si no hay seleccionada o la guardada ya no existe -> toma la primera
+      if (!selectedSucursal || !list.some((s) => Number(s.id) === Number(selectedSucursal.id))) {
+        const first = list[0];
+        setSelectedSucursal(first);
+        persistSelected(first);
+      }
+    } catch (err) {
+      console.warn("❌ No se pudieron cargar las sucursales:", err);
+      setSucursales([]);
+      setSelectedSucursal(null);
+      persistSelected(null);
+    }
+  };
+
+  // ---------- Cargar sucursales al montar y escuchar eventos del panel ----------
+  useEffect(() => {
+    refreshSucursales();
+
+    const onUpdate = (ev) => {
+      const deletedId = ev?.detail?.deletedId;
+      refreshSucursales({ deletedId });
+    };
+
+    window.addEventListener("sucursalesActualizadas", onUpdate);
+    return () => window.removeEventListener("sucursalesActualizadas", onUpdate);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------- Cargar datos de usuario ----------
   const loadUserData = async () => {
     const cachedStr = localStorage.getItem("user");
     const emailActual = localStorage.getItem("userEmail") || "";
@@ -32,7 +111,7 @@ function Header() {
     if (cachedStr) {
       try {
         const u = JSON.parse(cachedStr);
-        setProfileData(prev => ({
+        setProfileData((prev) => ({
           ...prev,
           name: u.nombre || u.username || emailActual,
           email: u.email || "",
@@ -47,9 +126,9 @@ function Header() {
       const rolesMap = roles.reduce((acc, r) => ({ ...acc, [r.id]: r.nombre }), {});
       const usuarios = await getUsers();
 
-      let u = usuarios.find(x => x.email === emailActual) || usuarios[0];
+      let u = usuarios.find((x) => x.email === emailActual) || usuarios[0];
       if (u) {
-        setProfileData(prev => ({
+        setProfileData((prev) => ({
           ...prev,
           name: u.nombre || u.username,
           email: u.email,
@@ -64,55 +143,26 @@ function Header() {
     }
   };
 
-  // --- Cargar usuario al montar ---
   useEffect(() => {
     loadUserData();
   }, []);
 
-
-
-  // === NUEVO useEffect para cargar las sucursales ===
-  useEffect(() => {
-    let mounted = true;
-
-    getSucursales()
-      .then((data) => {
-        if (!mounted) return; // Evita actualizar si el componente ya fue desmontado
-        setSucursales(data || []); // Guarda la lista completa
-
-        // Si no hay ninguna seleccionada todavía
-        if (!selectedSucursal && data && data.length > 0) {
-          setSelectedSucursal(data[0]); // Selecciona la primera como predeterminada
-        }
-      })
-      .catch((err) => {
-        console.warn("❌ No se pudieron cargar las sucursales:", err);
-      });
-
-    return () => {
-      mounted = false; // limpieza del efecto
-    };
-  }, [selectedSucursal, setSelectedSucursal]);
-
-
-
-  
-  // --- Logout ---
+  // ---------- Logout ----------
   const handleLogout = () => {
-    ["access_token", "refresh_token", "userRole", "userEmail", "user", "selected_sucursal"].forEach(k =>
+    ["access_token", "refresh_token", "userRole", "userEmail", "user", LS_SELECTED].forEach((k) =>
       localStorage.removeItem(k)
     );
     navigate("/", { replace: true });
   };
 
-  // --- Guardar cambios de perfil ---
+  // ---------- Guardar perfil (demo local) ----------
   const handleProfileSave = () => {
     alert("Información actualizada correctamente ✅");
     setIsEditing(false);
-    loadUserData(); // recarga datos automáticamente
+    loadUserData();
   };
 
-  // --- Estilos por rol ---
+  // ---------- Estilos por rol ----------
   const roleStyles =
     profileData.role === "Administrador"
       ? "bg-white text-gray-800 border border-gray-300"
@@ -130,25 +180,32 @@ function Header() {
             className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center shadow-md hover:shadow-lg transition-shadow"
           >
             <Home className="mr-2" size={16} />
-            {(selectedSucursal && selectedSucursal.nombre) || "Sucursal"} <span className="ml-2">▼</span>
+            {(selectedSucursal && selectedSucursal.nombre) || EMPTY_LABEL}
+            <span className="ml-2">▼</span>
           </button>
+
           {isLocationOpen && (
             <div className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded-md p-2 min-w-[220px]">
               <ul className="max-h-72 overflow-auto">
-                {sucursales.map(s => (
+                {sucursales.map((s) => (
                   <li
                     key={s.id}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
                     onClick={() => {
                       setSelectedSucursal(s);
+                      persistSelected(s);
                       setIsLocationOpen(false);
                     }}
                   >
                     <span>{s.nombre}</span>
-                    {selectedSucursal?.id === s.id && <span className="text-blue-600 text-sm">✓</span>}
+                    {selectedSucursal?.id === s.id && (
+                      <span className="text-blue-600 text-sm">✓</span>
+                    )}
                   </li>
                 ))}
-                {sucursales.length === 0 && <li className="px-4 py-2 text-gray-500">Sin sucursales</li>}
+                {sucursales.length === 0 && (
+                  <li className="px-4 py-2 text-gray-500">Sin sucursales</li>
+                )}
               </ul>
             </div>
           )}
@@ -169,6 +226,7 @@ function Header() {
               className="ml-2 w-8 h-8 rounded-full border border-gray-200"
             />
           </button>
+
           {isUserOpen && (
             <div className="absolute top-full right-0 mt-2 bg-white shadow-lg rounded-md p-2">
               <ul>
@@ -207,7 +265,9 @@ function Header() {
               ✕
             </button>
 
-            <h2 className="text-2xl font-bold text-center text-blue-600 mb-4">Mi perfil</h2>
+            <h2 className="text-2xl font-bold text-center text-blue-600 mb-4">
+              Mi perfil
+            </h2>
 
             <div className="flex flex-col items-center mb-4">
               <img
@@ -222,11 +282,12 @@ function Header() {
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={e => {
+                    onChange={(e) => {
                       const file = e.target.files[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onload = () => setProfileData({ ...profileData, avatar: reader.result });
+                        reader.onload = () =>
+                          setProfileData({ ...profileData, avatar: reader.result });
                         reader.readAsDataURL(file);
                       }
                     }}
@@ -237,34 +298,54 @@ function Header() {
 
             <div className="space-y-3">
               <div>
-                <label className="block text-gray-700 text-sm font-medium">Nombre completo</label>
+                <label className="block text-gray-700 text-sm font-medium">
+                  Nombre completo
+                </label>
                 <input
                   type="text"
                   value={profileData.name}
                   disabled={!isEditing}
-                  onChange={e => setProfileData({ ...profileData, name: e.target.value })}
-                  className={`w-full border rounded-md px-3 py-2 mt-1 ${isEditing ? "focus:ring focus:ring-blue-200 border-gray-300" : "bg-gray-100 cursor-not-allowed text-gray-600"}`}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, name: e.target.value })
+                  }
+                  className={`w-full border rounded-md px-3 py-2 mt-1 ${
+                    isEditing
+                      ? "focus:ring focus:ring-blue-200 border-gray-300"
+                      : "bg-gray-100 cursor-not-allowed text-gray-600"
+                  }`}
                 />
               </div>
 
               <div>
-                <label className="block text-gray-700 text-sm font-medium">Correo electrónico</label>
+                <label className="block text-gray-700 text-sm font-medium">
+                  Correo electrónico
+                </label>
                 <input
                   type="email"
                   value={profileData.email}
                   disabled={!isEditing}
-                  onChange={e => setProfileData({ ...profileData, email: e.target.value })}
-                  className={`w-full border rounded-md px-3 py-2 mt-1 ${isEditing ? "focus:ring focus:ring-blue-200 border-gray-300" : "bg-gray-100 cursor-not-allowed text-gray-600"}`}
+                  onChange={(e) =>
+                    setProfileData({ ...profileData, email: e.target.value })
+                  }
+                  className={`w-full border rounded-md px-3 py-2 mt-1 ${
+                    isEditing
+                      ? "focus:ring focus:ring-blue-200 border-gray-300"
+                      : "bg-gray-100 cursor-not-allowed text-gray-600"
+                  }`}
                 />
               </div>
 
               {isEditing && (
                 <div>
-                  <label className="block text-gray-700 text-sm font-medium">Nueva contraseña</label>
+                  <label className="block text-gray-700 text-sm font-medium">
+                    Nueva contraseña
+                  </label>
                   <input
                     type="password"
                     value={profileData.password}
-                    onChange={e => setProfileData({ ...profileData, password: e.target.value })}
+                    onChange={(e) =>
+                      setProfileData({ ...profileData, password: e.target.value })
+                    }
                     className="w-full border border-gray-300 rounded-md px-3 py-2 mt-1 focus:ring focus:ring-blue-200"
                     placeholder="••••••••"
                   />
@@ -274,11 +355,26 @@ function Header() {
 
             <div className="flex justify-end mt-6 gap-3">
               {!isEditing ? (
-                <button onClick={() => setIsEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Actualizar información</button>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Actualizar información
+                </button>
               ) : (
                 <>
-                  <button onClick={() => setIsEditing(false)} className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400">Cancelar</button>
-                  <button onClick={handleProfileSave} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Guardar cambios</button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-400"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleProfileSave}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                  >
+                    Guardar cambios
+                  </button>
                 </>
               )}
             </div>

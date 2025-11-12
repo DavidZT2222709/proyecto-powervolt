@@ -1,16 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Building2 } from "lucide-react";
+import { fetchWithToken } from "../../../api/fetchWithToken.js";
+
+const API_URL = "http://localhost:8000/api";
 
 const BranchesPanel = () => {
-  const [branches, setBranches] = useState([
-    {
-      id: 1,
-      nombre: "Sucursal Piedecuesta",
-      direccion: "Cra 18 # 8 - 12 Palermo I",
-      encargado: "Luis Lopez",
-    },
-  ]);
-
+  const [branches, setBranches] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -21,10 +16,30 @@ const BranchesPanel = () => {
     encargado: "",
   });
 
+  const fetchBranches = async () => {
+    try {
+      const response = await fetchWithToken(`${API_URL}/sucursales/`, { method: "GET" });
+      if (!response.ok) throw new Error(`GET /sucursales/ -> ${response.status}`);
+      const data = await response.json();
+      setBranches(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error al cargar las sucursales:", error);
+      setBranches([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchBranches();
+  }, []);
+
   const handleOpenModal = (branch = null) => {
     if (branch) {
       setEditing(branch.id);
-      setFormData(branch);
+      setFormData({
+        nombre: branch.nombre ?? "",
+        direccion: branch.direccion ?? "",
+        encargado: branch.encargado ?? "",
+      });
     } else {
       setEditing(null);
       setFormData({ nombre: "", direccion: "", encargado: "" });
@@ -32,20 +47,56 @@ const BranchesPanel = () => {
     setModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (editing) {
-      setBranches(
-        branches.map((b) => (b.id === editing ? { ...formData, id: editing } : b))
-      );
-    } else {
-      setBranches([...branches, { ...formData, id: branches.length + 1 }]);
-    }
-    setModalOpen(false);
+  const hardReload = () => {
+    // Recarga completa (tú lo pediste explícitamente)
+    window.location.reload();
   };
 
-  const handleDelete = (id) => {
-    setBranches(branches.filter((b) => b.id !== id));
-    setDeleteModal(false);
+  const handleSave = async () => {
+    try {
+      const url = editing
+        ? `${API_URL}/sucursales/${editing}` // detalle sin slash final
+        : `${API_URL}/sucursales/`;
+
+      const method = editing ? "PUT" : "POST";
+
+      const response = await fetchWithToken(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) throw new Error(`${method} ${url} -> ${response.status}`);
+
+      await fetchBranches();
+      // Notificar header (cambios generales)
+      window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { changed: true } }));
+      setModalOpen(false);
+
+      // Hard reload para ver header + lista al instante
+      hardReload();
+    } catch (error) {
+      console.error("Error al guardar la sucursal:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const url = `${API_URL}/sucursales/${id}`; // detalle sin slash final
+      const response = await fetchWithToken(url, { method: "DELETE" });
+      if (!response.ok) throw new Error(`DELETE ${url} -> ${response.status}`);
+
+      setBranches((prev) => prev.filter((b) => Number(b.id) !== Number(id)));
+
+      // Avisar al header cuál fue la ID eliminada para limpiar selección si era la activa
+      window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { deletedId: id } }));
+    } catch (error) {
+      console.error("Error al eliminar la sucursal:", error);
+    } finally {
+      setDeleteModal(false);
+      // Hard reload para reflejar todo
+      hardReload();
+    }
   };
 
   return (
@@ -58,7 +109,7 @@ const BranchesPanel = () => {
         </p>
       </div>
 
-      {/* ===== Botón principal fuera del listado ===== */}
+      {/* ===== Botón principal ===== */}
       <div className="flex justify-start mb-4">
         <button
           onClick={() => handleOpenModal()}
@@ -68,7 +119,7 @@ const BranchesPanel = () => {
         </button>
       </div>
 
-      {/* ===== Contenedor del listado ===== */}
+      {/* ===== Listado ===== */}
       <div className="bg-white rounded-2xl shadow-md p-6">
         {branches.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
@@ -91,8 +142,7 @@ const BranchesPanel = () => {
                     </h3>
                     <p className="text-sm text-gray-500">{b.direccion}</p>
                     <p className="text-sm text-gray-600 mt-1">
-                      <span className="font-medium">Encargado:</span>{" "}
-                      {b.encargado}
+                      <span className="font-medium">Encargado:</span> {b.encargado}
                     </p>
                   </div>
                 </div>
