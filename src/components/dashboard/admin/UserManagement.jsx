@@ -75,8 +75,21 @@ const UserManagement = () => {
   const openModal = (type, user = null) => {
     setModal({ open: true, type, user });
 
-    setNewUser(
-      user || {
+    if (user) {
+      // Estamos editando → mapeamos campos explícitamente
+      setNewUser({
+        id: user.id,
+        nombre: user.nombre || "",
+        email: user.email || "",
+        username: user.username || "",
+        numero_telefono: user.numero_telefono || "",
+        rol_id: user.rol_id ?? user.rol ?? "",
+        password: "", // no llenamos password para editar
+        is_active: user.is_active
+      });
+    } else {
+      // Estamos creando
+      setNewUser({
         id: null,
         nombre: "",
         email: "",
@@ -85,8 +98,8 @@ const UserManagement = () => {
         rol_id: "",
         password: "",
         is_active: true
-      }
-    );
+      });
+    }
   };
 
   const closeModal = () => {
@@ -113,7 +126,7 @@ const UserManagement = () => {
         username: newUser.username,
         email: newUser.email,
         numero_telefono: newUser.numero_telefono,
-        rol: newUser.rol_id,
+        rol_id: Number(newUser.rol_id),
         password: newUser.password
       };
 
