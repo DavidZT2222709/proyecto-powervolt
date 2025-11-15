@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { fetchWithToken } from "../../../api/fetchWithToken.js";
+import { ToastContainer, toast } from "react-toastify";   // <-- IMPORTANTE
+import "react-toastify/dist/ReactToastify.css";           // <-- IMPORTANTE
 
 const API_URL = "http://localhost:8000/api";
 
@@ -20,10 +22,14 @@ const BranchesPanel = () => {
     try {
       const response = await fetchWithToken(`${API_URL}/sucursales/`, { method: "GET" });
       if (!response.ok) throw new Error(`GET /sucursales/ -> ${response.status}`);
+
       const data = await response.json();
       setBranches(Array.isArray(data) ? data : []);
+
+      toast.success("Sucursales cargadas correctamente");
     } catch (error) {
       console.error("Error al cargar las sucursales:", error);
+      toast.error("Error al cargar sucursales");
       setBranches([]);
     }
   };
@@ -48,14 +54,13 @@ const BranchesPanel = () => {
   };
 
   const hardReload = () => {
-    // Recarga completa (tú lo pediste explícitamente)
     window.location.reload();
   };
 
   const handleSave = async () => {
     try {
       const url = editing
-        ? `${API_URL}/sucursales/${editing}` // detalle sin slash final
+        ? `${API_URL}/sucursales/${editing}`
         : `${API_URL}/sucursales/`;
 
       const method = editing ? "PUT" : "POST";
@@ -69,32 +74,36 @@ const BranchesPanel = () => {
       if (!response.ok) throw new Error(`${method} ${url} -> ${response.status}`);
 
       await fetchBranches();
-      // Notificar header (cambios generales)
+
       window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { changed: true } }));
       setModalOpen(false);
 
-      // Hard reload para ver header + lista al instante
+      toast.success(editing ? "Sucursal actualizada" : "Sucursal creada");
+
       hardReload();
     } catch (error) {
       console.error("Error al guardar la sucursal:", error);
+      toast.error("No se pudo guardar la sucursal");
     }
   };
 
   const handleDelete = async (id) => {
     try {
-      const url = `${API_URL}/sucursales/${id}`; // detalle sin slash final
+      const url = `${API_URL}/sucursales/${id}`;
       const response = await fetchWithToken(url, { method: "DELETE" });
+
       if (!response.ok) throw new Error(`DELETE ${url} -> ${response.status}`);
 
       setBranches((prev) => prev.filter((b) => Number(b.id) !== Number(id)));
 
-      // Avisar al header cuál fue la ID eliminada para limpiar selección si era la activa
       window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { deletedId: id } }));
+
+      toast.success("Sucursal eliminada");
     } catch (error) {
       console.error("Error al eliminar la sucursal:", error);
+      toast.error("No se pudo eliminar la sucursal");
     } finally {
       setDeleteModal(false);
-      // Hard reload para reflejar todo
       hardReload();
     }
   };
@@ -269,6 +278,17 @@ const BranchesPanel = () => {
           </div>
         </div>
       )}
+
+      {/* 🔔 CONTENEDOR GLOBAL DE TOASTIFY */}
+      <ToastContainer
+        position="bottom-right"
+        autoClose={2500}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        theme="colored"
+      />
     </div>
   );
 };

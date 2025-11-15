@@ -7,8 +7,8 @@ import UserDashboard from "../components/dashboard/worker/UserDashboard";
 import InventoryPanel from "../components/InventoryPanel";
 import Layout from "../components/Layout";
 import LoginPage from "../Login";
-import WarrantiesPanel from "../components/dashboard/worker/WarrantiesPanel.jsx";
-import HistoryPanel from "../components/dashboard/admin/HistoryPanel.jsx";
+import WarrantiesPanel from "../components/WarrantiesPanel.jsx";
+import HistoryPanel from "../components/HistoryPanel.jsx";
 
 const AppRoutes = () => {
     return (

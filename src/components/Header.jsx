@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { getUsers, getRoles } from "../api/usuarios";
 import { getSucursales } from "../api/sucursales";
 import { useSucursal } from "../context/SucursalContext";
+import { toast } from "react-hot-toast";
 
 const EMPTY_LABEL = "Sucursales";
 const LS_SELECTED = "selected_sucursal";
@@ -13,6 +14,9 @@ function Header() {
   const [isUserOpen, setIsUserOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  const [visible, setVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
 
   const [profileData, setProfileData] = useState({
     name: "",
@@ -27,13 +31,28 @@ function Header() {
   const [sucursales, setSucursales] = useState([]);
   const navigate = useNavigate();
 
-  // ---------- UTIL: persistir/limpiar selección ----------
+  // ===== Detectar scroll para ocultar/mostrar header =====
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > lastScrollY && window.scrollY > 80) {
+        setVisible(false);
+      } else {
+        setVisible(true);
+      }
+      setLastScrollY(window.scrollY);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [lastScrollY]);
+
+  // ---------- Persistir selección ----------
   const persistSelected = (s) => {
     if (s && s.id != null) localStorage.setItem(LS_SELECTED, String(s.id));
     else localStorage.removeItem(LS_SELECTED);
   };
 
-  // ---------- Cargar/Refrescar sucursales con lógica de selección ----------
+  // ---------- Cargar sucursales ----------
   const refreshSucursales = async (opts = {}) => {
     try {
       const list = (await getSucursales()) || [];
@@ -41,27 +60,23 @@ function Header() {
 
       const savedId = localStorage.getItem(LS_SELECTED);
 
-      // Si no hay ninguna en BD
       if (list.length === 0) {
-        if (selectedSucursal) setSelectedSucursal(null);
+        setSelectedSucursal(null);
         persistSelected(null);
         return;
       }
 
-      // Si se pasa deletedId y coincide con la seleccionada -> limpiar primero
       if (
         opts.deletedId &&
         selectedSucursal &&
         Number(selectedSucursal.id) === Number(opts.deletedId)
       ) {
-        // Si hay más, tomar la primera; si no, limpiar
         const next = list[0] || null;
         setSelectedSucursal(next);
         persistSelected(next);
         return;
       }
 
-      // Si hay guardada en localStorage y existe aún -> úsala
       if (savedId) {
         const found = list.find((s) => String(s.id) === String(savedId));
         if (found) {
@@ -73,7 +88,6 @@ function Header() {
         }
       }
 
-      // Si no hay seleccionada o la guardada ya no existe -> toma la primera
       if (!selectedSucursal || !list.some((s) => Number(s.id) === Number(selectedSucursal.id))) {
         const first = list[0];
         setSelectedSucursal(first);
@@ -84,10 +98,10 @@ function Header() {
       setSucursales([]);
       setSelectedSucursal(null);
       persistSelected(null);
+      toast.error("No se pudieron cargar las sucursales");
     }
   };
 
-  // ---------- Cargar sucursales al montar y escuchar eventos del panel ----------
   useEffect(() => {
     refreshSucursales();
 
@@ -101,13 +115,12 @@ function Header() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- Cargar datos de usuario ----------
+  // ---------- Cargar datos del usuario ----------
   const loadUserData = async () => {
     const cachedStr = localStorage.getItem("user");
     const emailActual = localStorage.getItem("userEmail") || "";
     const roleCache = localStorage.getItem("userRole") || "Usuario";
 
-    // Cargar desde cache inmediatamente
     if (cachedStr) {
       try {
         const u = JSON.parse(cachedStr);
@@ -140,6 +153,7 @@ function Header() {
       }
     } catch (err) {
       console.error("Error cargando usuario:", err);
+      toast.error("Error al cargar datos del usuario");
     }
   };
 
@@ -152,27 +166,37 @@ function Header() {
     ["access_token", "refresh_token", "userRole", "userEmail", "user", LS_SELECTED].forEach((k) =>
       localStorage.removeItem(k)
     );
-    navigate("/", { replace: true });
+
+    toast.success("Sesión cerrada correctamente");
+
+    setTimeout(() => navigate("/", { replace: true }), 800);
   };
 
-  // ---------- Guardar perfil (demo local) ----------
+  // ---------- Guardar perfil ----------
   const handleProfileSave = () => {
-    alert("Información actualizada correctamente ✅");
+    toast.success("Información actualizada correctamente");
     setIsEditing(false);
     loadUserData();
   };
 
-  // ---------- Estilos por rol ----------
+  // ---------- Estilos ----------
   const roleStyles =
     profileData.role === "Administrador"
       ? "bg-white text-gray-800 border border-gray-300"
       : "bg-yellow-50 border border-yellow-200 text-yellow-800";
+
   const roleTextColor =
     profileData.role === "Administrador" ? "text-gray-500" : "text-yellow-600";
 
   return (
     <>
-      <header className={`fixed top-0 right-0 w-full flex justify-end items-center space-x-4 p-4 pr-10 transition-transform duration-500 z-50`}>
+      <header
+        className={`fixed top-0 right-0 w-full flex justify-end items-center space-x-4 p-4 pr-10 
+        transition-transform duration-500 z-50 ${
+          visible ? "translate-y-0" : "-translate-y-full"
+        }`}
+        style={{ background: "transparent", boxShadow: "none" }}
+      >
         {/* Botón Sucursal */}
         <div className="relative">
           <button
@@ -195,6 +219,7 @@ function Header() {
                       setSelectedSucursal(s);
                       persistSelected(s);
                       setIsLocationOpen(false);
+                      toast.success(`Sucursal cambiada a: ${s.nombre}`);
                     }}
                   >
                     <span>{s.nombre}</span>
@@ -254,7 +279,7 @@ function Header() {
         </button>
       </header>
 
-      {/* Modal de perfil */}
+      {/* Modal Perfil */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">

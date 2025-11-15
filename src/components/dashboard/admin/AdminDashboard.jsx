@@ -18,9 +18,9 @@ import {
 
 import InventoryPanel from "../../InventoryPanel.jsx";
 import UserManagement from "./UserManagement.jsx";
-import HistoryPanel from "./HistoryPanel";
+import HistoryPanel from "../../HistoryPanel.jsx";
 import BranchesPanel from "./BranchesPanel.jsx"
-import WarrantiesPanel from './WarrantiesPanel.jsx';
+import WarrantiesPanel from '../../WarrantiesPanel.jsx';
 
 
 function AdminDashboard() {
@@ -211,7 +211,9 @@ function AdminDashboard() {
                 <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
                   <BarChart3 /> Porcentaje de ventas por marca
                 </h3>
-                <Pie data={data} />
+                <div className="w-56 h-56 mx-auto">
+                  <Pie data={data} />
+                </div>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { fetchWithToken } from "../api/fetchWithToken.js";
 import { useSucursal } from "../context/SucursalContext";
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import {
   PlusCircle,
@@ -15,7 +17,6 @@ import {
 } from "lucide-react";
 
 const API_URL = "http://localhost:8000/api";
-
 
 //////////////////////////////////////////////////
 // === Helpers para obtener el id del usuario de forma simple ===
@@ -53,7 +54,6 @@ function getCurrentUserId() {
 }
 //////////////////////////////////////////////////
 
-
 const InventoryPanel = () => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
   const [quickEntry, setQuickEntry] = useState({
@@ -75,7 +75,6 @@ const InventoryPanel = () => {
   const [genComment, setGenComment] = useState("");          // comentario general (si hay diferencias)
   const [posting, setPosting] = useState(false);             // loading para POST
 
-
   // Estados para búsqueda y filtro en inventario
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMarca, setSelectedMarca] = useState("");
@@ -91,7 +90,6 @@ const InventoryPanel = () => {
     setCurrentUserId(getCurrentUserId());
   }, []);
 
-
   const [newProduct, setNewProduct] = useState({
     caja: "",
     amperaje: "",
@@ -102,6 +100,45 @@ const InventoryPanel = () => {
     marca: "",
     sucursal: "",
   });
+
+  // Función para mostrar confirmación con toastify
+  const confirmAction = (message) => {
+    return new Promise((resolve) => {
+      // Creamos un toast personalizado con botones de confirmación
+      const toastId = toast.info(
+        <div className="text-center">
+          <div className="mb-3 font-semibold">{message}</div>
+          <div className="flex justify-center gap-3">
+            <button
+              className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition"
+              onClick={() => {
+                resolve(true);
+                toast.dismiss(toastId);
+              }}
+            >
+              Sí
+            </button>
+            <button
+              className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition"
+              onClick={() => {
+                resolve(false);
+                toast.dismiss(toastId);
+              }}
+            >
+              No
+            </button>
+          </div>
+        </div>,
+        {
+          position: "top-center",
+          autoClose: false,
+          closeOnClick: false,
+          draggable: false,
+          closeButton: false,
+        }
+      );
+    });
+  };
 
   // Función para obtener productos desde la API
   const fetchProducts = async () => {
@@ -116,6 +153,7 @@ const InventoryPanel = () => {
       setProducts(data);
     } catch (error) {
       console.error("Error fetching products:", error);
+      toast.error("Error al cargar los productos");
     }
   };
 
@@ -127,6 +165,7 @@ const InventoryPanel = () => {
       setMarcas(data);
     } catch (error) {
       console.error("Error fetching marcas:", error);
+      toast.error("Error al cargar las marcas");
     }
   };
 
@@ -138,6 +177,7 @@ const InventoryPanel = () => {
       setSucursales(data);
     } catch (error) {
       console.error("Error fetching sucursales:", error);
+      toast.error("Error al cargar las sucursales");
     }
   };
 
@@ -169,7 +209,6 @@ const InventoryPanel = () => {
   const calcDiff = (item) =>
   (Number(item.stock) || 0) - (Number(item.conteo) || 0) - (Number(item.ventas) || 0);
 
-
   const handleConteoInput = (id, value) =>
     setSelectedInventory((prev) =>
       prev.map((it) =>
@@ -185,7 +224,6 @@ const InventoryPanel = () => {
     );
     ///////////////////////////////////////////////
 
-  
   // Quitar un producto de la cajita y reponerlo en la lista de búsqueda si aplica
   const handleRemoveFromInventory = (id) => {
     setSelectedInventory((prev) => {
@@ -238,13 +276,13 @@ const InventoryPanel = () => {
         setSearchResults(data);
       } catch (error) {
         console.error("Error al buscar productos:", error);
+        toast.error("Error al buscar productos");
       }
     };
 
     const delayDebounce = setTimeout(fetchSearchResults, 400);
     return () => clearTimeout(delayDebounce);
   }, [searchTerm, selectedMarca, selectedSucursal]);
-
 
   // Función para obtener tipos de inventario desde la API
   const fetchTiposInventario = async () => {
@@ -254,6 +292,7 @@ const InventoryPanel = () => {
       setTiposInventario(data);
     } catch (e) {
       console.error("Error fetching tipos inventario:", e);
+      toast.error("Error al cargar los tipos de inventario");
     }
   };
 
@@ -269,7 +308,6 @@ const InventoryPanel = () => {
     fetchTiposInventario();
   }, []);
 
-  
   const handleChange = (e) => {
     setNewProduct({ ...newProduct, [e.target.name]: e.target.value });
   };
@@ -343,16 +381,17 @@ const InventoryPanel = () => {
         setProducts((prev) => prev.map((p) => (p.id === data.id ? data : p)));
         await fetchProducts();
         closeModal();
+        toast.success("Producto actualizado correctamente");
         return;
       }
 
       // ===== AGREGAR =====
       if (!newProduct.marca) {
-        alert("Selecciona una marca.");
+        toast.warning("Selecciona una marca");
         return;
       }
       if (!newProduct.sucursal) {
-        alert("Selecciona la sucursal (o 'Ambas sucursales').");
+        toast.warning("Selecciona la sucursal (o 'Ambas sucursales')");
         return;
       }
 
@@ -361,13 +400,13 @@ const InventoryPanel = () => {
       if (newProduct.sucursal === "ambas") {
         targetSucursalIds = sucursales.map((s) => s.id);
         if (targetSucursalIds.length === 0) {
-          alert("No hay sucursales configuradas para crear el producto.");
+          toast.error("No hay sucursales configuradas para crear el producto");
           return;
         }
       } else {
         const parsed = parseInt(newProduct.sucursal, 10);
         if (Number.isNaN(parsed) || parsed <= 0) {
-          alert("Sucursal inválida.");
+          toast.error("Sucursal inválida");
           return;
         }
         targetSucursalIds = [parsed];
@@ -402,12 +441,12 @@ const InventoryPanel = () => {
       }
       await fetchProducts();
       closeModal();
+      toast.success("Producto creado correctamente");
     } catch (error) {
       console.error(`Error ${modal.type === "add" ? "creating" : "updating"} product:`, error);
-      alert("Ocurrió un error al guardar. Revisa la consola para más detalles.");
+      toast.error("Ocurrió un error al guardar");
     }
   };
-
 
   const handleQuickEntry = async (e) => {
     e.preventDefault();
@@ -415,12 +454,12 @@ const InventoryPanel = () => {
     const producto = modal.product;
     const cantidadNum = Number(quickEntry.cantidad) || 0;
     if (!producto || cantidadNum <= 0) {
-      alert("Ingresa una cantidad válida.");
+      toast.warning("Ingresa una cantidad válida");
       return;
     }
 
-    // Confirmación
-    const ok = window.confirm("¿Confirmas la entrada rápida de stock?");
+    // Confirmación con toastify
+    const ok = await confirmAction("¿Confirmas la entrada rápida de stock?");
     if (!ok) return;
 
     try {
@@ -434,11 +473,11 @@ const InventoryPanel = () => {
       const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
-        alert("No fue posible resolver tipo de inventario o sucursal para la entrada.");
+        toast.error("No fue posible resolver tipo de inventario o sucursal para la entrada");
         return;
       }
       if (!currentUserId) {
-        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
+        toast.error("No se encontró el usuario actual. Inicia sesión nuevamente");
         return;
       }
 
@@ -464,19 +503,15 @@ const InventoryPanel = () => {
         throw new Error(`Error ${resp.status}: ${await resp.text()}`);
       }
 
-      // Si tu API devuelve el registro/ok, puedes leerlo aquí:
-      // const created = await resp.json();
-
-      alert("✅ Entrada rápida generada correctamente.");
+      toast.success("✅ Entrada rápida generada correctamente");
       // Refrescar productos para ver el nuevo stock
       await fetchProducts();
       closeModal();
     } catch (err) {
       console.error(err);
-      alert("❌ Hubo un error generando la entrada rápida. Revisa la consola para más detalle.");
+      toast.error("❌ Hubo un error generando la entrada rápida");
     }
   };
-
 
   const handleQuickDelete = async (e) => {
     e.preventDefault();
@@ -484,7 +519,7 @@ const InventoryPanel = () => {
     const producto = modal.product;
     const cantidadNum = Number(quickEntry.cantidad) || 0;
     if (!producto || cantidadNum <= 0) {
-      alert("Ingresa una cantidad válida.");
+      toast.warning("Ingresa una cantidad válida");
       return;
     }
 
@@ -493,11 +528,11 @@ const InventoryPanel = () => {
 
     // Si stock - cantidad > 0 => NO permitir (tal como indicaste)
     if (ventasCalculada < 0) {
-      alert("No se permite la salida: stock - cantidad es menor que 0.");
+      toast.error("No se permite la salida: stock - cantidad es menor que 0");
       return;
     }
 
-    const ok = window.confirm("¿Confirmas la salida rápida de stock?");
+    const ok = await confirmAction("¿Confirmas la salida rápida de stock?");
     if (!ok) return;
 
     try {
@@ -511,11 +546,11 @@ const InventoryPanel = () => {
       const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
-        alert("No fue posible resolver tipo de inventario o sucursal para la salida.");
+        toast.error("No fue posible resolver tipo de inventario o sucursal para la salida");
         return;
       }
       if (!currentUserId) {
-        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
+        toast.error("No se encontró el usuario actual. Inicia sesión nuevamente");
         return;
       }
 
@@ -539,33 +574,35 @@ const InventoryPanel = () => {
         throw new Error(`Error ${resp.status}: ${await resp.text()}`);
       }
 
-      alert("✅ Salida rápida generada correctamente.");
+      toast.success("✅ Salida rápida generada correctamente");
       await fetchProducts(); // refrescar stock
       closeModal();
     } catch (err) {
       console.error(err);
-      alert("❌ Hubo un error generando la salida rápida. Revisa la consola para más detalle.");
+      toast.error("❌ Hubo un error generando la salida rápida");
     }
   };
 
-
   const handleDelete = async (productId) => {
-    if (window.confirm("¿Estás seguro de eliminar este producto?")) {
-      try {
-        const response = await fetchWithToken(`${API_URL}/productos/${productId}`, {
-          method: "DELETE",
-        });
+    const ok = await confirmAction("¿Estás seguro de eliminar este producto?");
+    if (!ok) return;
 
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}: ${await response.text()}`);
-        }
+    try {
+      const response = await fetchWithToken(`${API_URL}/productos/${productId}`, {
+        method: "DELETE",
+      });
 
-        // Actualiza el estado eliminando el producto
-        setProducts(products.filter((p) => p.id !== productId));
-        closeModal();
-      } catch (error) {
-        console.error("Error deleting product:", error);
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${await response.text()}`);
       }
+
+      // Actualiza el estado eliminando el producto
+      setProducts(products.filter((p) => p.id !== productId));
+      closeModal();
+      toast.success("Producto eliminado correctamente");
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Error al eliminar el producto");
     }
   };
 
@@ -577,7 +614,7 @@ const InventoryPanel = () => {
   //Al pulsar "Generar inventario": validar diferencias y abrir panel previo si aplica
   const handleGenerateClick = () => {
     if (selectedInventory.length === 0) {
-      alert("No hay productos en el listado de inventario.");
+      toast.warning("No hay productos en el listado de inventario");
       return;
     }
 
@@ -597,7 +634,7 @@ const InventoryPanel = () => {
 
   //Confirmación y POST
   const confirmAndPost = async (comentarioGeneral) => {
-    const ok = window.confirm("¿Está seguro de generar el inventario?");
+    const ok = await confirmAction("¿Está seguro de generar el inventario?");
     if (!ok) return;
 
     try {
@@ -613,7 +650,7 @@ const InventoryPanel = () => {
       const sucursal_id = selectedSucursal?.id ?? sucursales[0]?.id;
 
       if (!tipo_inventario_id || !sucursal_id) {
-        alert("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos.");
+        toast.error("No fue posible resolver tipo de inventario o sucursal. Verifique catálogos");
         setPosting(false);
         return;
       }
@@ -621,7 +658,7 @@ const InventoryPanel = () => {
       // Usuario actual
       const usuario_id = currentUserId;
       if (!usuario_id) {
-        alert("No se encontró el usuario actual. Inicia sesión nuevamente.");
+        toast.error("No se encontró el usuario actual. Inicia sesión nuevamente");
         setPosting(false);
         return;
       }
@@ -653,7 +690,7 @@ const InventoryPanel = () => {
       const lote = created?.[0]?.lote_numero;
 
       // Mostrar mensaje indicando el lote
-      alert(`✅ Inventario generado exitosamente.\nLote #${lote}`);
+      toast.success(`✅ Inventario generado exitosamente. Lote #${lote}`);
 
       // Limpiar listado y recargar productos
       setSelectedInventory([]);
@@ -666,16 +703,28 @@ const InventoryPanel = () => {
 
     } catch (e) {
       console.error(e);
-      alert("Hubo un error generando el inventario. Revisa la consola para más detalle.");
+      toast.error("Hubo un error generando el inventario");
     } finally {
       setPosting(false);
     }
   };
 
-
-
   return (
     <div className="rounded-2xl shadow-sm">
+      {/* Container de Toastify */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
+      
       {/* Encabezado */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE INVENTARIO</h1>
@@ -1137,7 +1186,6 @@ const InventoryPanel = () => {
                 )}
                 {/* ---------------------------------------------------- */}
 
-
                 {/*Cajita del inventario (scroll después de 5 ítems) */}
                 {/* Cajita del inventario (una sola tabla, header sticky, sin scroll horizontal) */}
                 {selectedInventory.length > 0 && (
@@ -1148,7 +1196,7 @@ const InventoryPanel = () => {
                       {/* Contenedor con scroll vertical y ocultando horizontal */}
                       <div className="max-h-[340px] overflow-y-auto overflow-x-hidden">
                         <table className="w-full text-sm table-fixed">
-                          {/* Proporciones parecidas a tu mock: menos ancho para “Baterías” */}
+                          {/* Proporciones parecidas a tu mock: menos ancho para "Baterías" */}
                           <colgroup>
                             <col style={{ width: "36%" }} /> {/* Baterías */}
                             <col style={{ width: "12%" }} /> {/* Stock */}
@@ -1156,7 +1204,6 @@ const InventoryPanel = () => {
                             <col style={{ width: "20%" }} /> {/* Ventas */}
                             <col style={{ width: "10%" }} /> {/* + / - */}
                           </colgroup>
-
 
                         <thead className="bg-gray-100 sticky top-0 z-10">
                           <tr>
@@ -1192,7 +1239,7 @@ const InventoryPanel = () => {
                                   <span className="font-extrabold text-[17px]">{it.stock}</span>
                                 </td>
 
-                                {/* Conteo -> + / − juntos + “píldora” azul con el valor */}
+                                {/* Conteo -> + / − juntos + "píldora" azul con el valor */}
                                 <td className="px-3 py-3 text-center align-middle">
                                   <div className="inline-flex items-center gap-2">
                                     <button
@@ -1212,7 +1259,7 @@ const InventoryPanel = () => {
                                       <MinusCircle size={22} />
                                     </button>
 
-                                    {/* “Píldora” editable opcional: si la quieres editable, deja el input; si no, úsalo como display */}
+                                    {/* "Píldora" editable opcional: si la quieres editable, deja el input; si no, úsalo como display */}
                                     <input
                                       type="number"
                                       value={it.conteo}
@@ -1239,7 +1286,6 @@ const InventoryPanel = () => {
                                     />
                                   </div>
                                 </td>
-
 
                                 {/* + / - (diferencia) + eliminar */}
                                 <td className="px-3 py-3 text-center align-middle">
