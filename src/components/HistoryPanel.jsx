@@ -14,7 +14,9 @@ import {
 import { useSucursal } from "../context/SucursalContext.jsx";
 import { fetchWithToken } from "../api/fetchWithToken.js";
 import { getUsers } from "../api/usuarios.js";
-import toast from "react-hot-toast";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 const API_URL = "http://localhost:8000/api";
 
@@ -188,6 +190,9 @@ const HistoryPanel = () => {
 
   return (
     <div className="rounded-2xl shadow-sm">
+
+      <ToastContainer position="top-right" />
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">
           HISTORIAL DE MOVIMIENTOS
@@ -287,6 +292,9 @@ const HistoryPanel = () => {
           payload={detailPayload}
           userName={userName}
           reload={loadInventarios}
+          onUpdatePayload={(updater) =>
+            setDetailPayload((prev) => (prev ? updater(prev) : prev))
+          }
         />
       )}
     </div>
@@ -318,7 +326,7 @@ const CommentBlock = ({ title, text }) => (
 );
 
 // ===== Modal principal =====
-const DetailModal = ({ onClose, payload, userName, reload }) => {
+const DetailModal = ({ onClose, payload, userName, reload, onUpdatePayload }) => {
   if (!payload) return null;
 
   const title =
@@ -350,6 +358,7 @@ const DetailModal = ({ onClose, payload, userName, reload }) => {
           payload={payload}
           onClose={onClose}
           reload={reload}
+          onUpdatePayload={onUpdatePayload}
         />
       </div>
     </div>
@@ -357,17 +366,21 @@ const DetailModal = ({ onClose, payload, userName, reload }) => {
 };
 
 // ===== FOOTER: Editar + Eliminar =====
-const ModalFooterActions = ({ payload, onClose, reload }) => {
+const ModalFooterActions = ({ payload, onClose, reload, onUpdatePayload }) => {
   return (
     <div className="mt-4 flex items-center gap-3">
-      <EditCommentButton payload={payload} reload={reload} />
+      <EditCommentButton
+        payload={payload}
+        reload={reload}
+        onUpdatePayload={onUpdatePayload}
+      />
       <DeleteButton payload={payload} onClose={onClose} reload={reload} />
     </div>
   );
 };
 
 // ===== Editar comentario =====
-const EditCommentButton = ({ payload, reload }) => {
+const EditCommentButton = ({ payload, reload, onUpdatePayload }) => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [value, setValue] = useState(
@@ -389,23 +402,43 @@ const EditCommentButton = ({ payload, reload }) => {
             })
           )
         );
+
+        // Actualizar el payload local del modal (comentario de todos los items del lote)
+        onUpdatePayload?.((prev) => ({
+          ...prev,
+          items: prev.items.map((p) => ({
+            ...p,
+            comentario: value,
+          })),
+        }));
       } else {
         await fetchWithToken(`${API_URL}/inventarios/${payload.item.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ comentario: value }),
         });
+
+        // Actualizar el payload local del modal (comentario del item único)
+        onUpdatePayload?.((prev) => ({
+          ...prev,
+          item: {
+            ...prev.item,
+            comentario: value,
+          },
+        }));
       }
 
       toast.success("Comentario actualizado");
       setEditing(false);
-      reload();
-    } catch {
+      reload(); // recarga la tabla de abajo
+    } catch (e) {
+      console.error(e);
       toast.error("Error al actualizar el comentario");
     } finally {
       setSaving(false);
     }
   };
+
 
   if (!editing)
     return (
@@ -441,65 +474,72 @@ const EditCommentButton = ({ payload, reload }) => {
 
 // ===== Eliminar =====
 const DeleteButton = ({ payload, onClose, reload }) => {
-  const handleDelete = async () => {
-    toast(
-      (t) => (
-        <div className="flex flex-col gap-2">
-          <span className="font-semibold">¿Eliminar este registro?</span>
-          <div className="flex gap-2">
-            <button
-              className="px-3 py-1 bg-red-600 text-white rounded-md"
-              onClick={async () => {
-                toast.dismiss(t.id);
-                try {
-                  if (payload.type === "lote") {
-                    await Promise.all(
-                      payload.items.map((p) =>
-                        fetchWithToken(`${API_URL}/inventarios/${p.id}`, {
-                          method: "DELETE",
-                        })
-                      )
-                    );
-                  } else {
-                    await fetchWithToken(
-                      `${API_URL}/inventarios/${payload.item.id}`,
-                      { method: "DELETE" }
-                    );
-                  }
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
-                  toast.success("Eliminado correctamente");
-                  onClose();
-                  reload();
-                } catch {
-                  toast.error("Error al eliminar");
-                }
-              }}
-            >
-              Eliminar
-            </button>
+  const doDelete = async () => {
+    setDeleting(true);
+    try {
+      if (payload.type === "lote") {
+        await Promise.all(
+          payload.items.map((p) =>
+            fetchWithToken(`${API_URL}/inventarios/${p.id}`, {
+              method: "DELETE",
+            })
+          )
+        );
+      } else {
+        await fetchWithToken(
+          `${API_URL}/inventarios/${payload.item.id}`,
+          { method: "DELETE" }
+        );
+      }
 
-            <button
-              className="px-3 py-1 bg-gray-300 rounded-md"
-              onClick={() => toast.dismiss(t.id)}
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ),
-      { duration: Infinity }
-    );
+      toast.success("Eliminado correctamente");
+      onClose();
+      reload();
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al eliminar");
+    } finally {
+      setDeleting(false);
+      setConfirming(false);
+    }
   };
 
+  // Estado normal: solo botón rojo "Eliminar"
+  if (!confirming) {
+    return (
+      <button
+        onClick={() => setConfirming(true)}
+        className="bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 inline-flex items-center gap-1"
+      >
+        <Trash2 size={16} /> Eliminar
+      </button>
+    );
+  }
+
+  // Estado de confirmación: botones dentro del modal
   return (
-    <button
-      onClick={handleDelete}
-      className="bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 inline-flex items-center gap-1"
-    >
-      <Trash2 size={16} /> Eliminar
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        onClick={doDelete}
+        disabled={deleting}
+        className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 inline-flex items-center gap-1"
+      >
+        {deleting ? "Eliminando..." : "Confirmar"}
+      </button>
+      <button
+        onClick={() => setConfirming(false)}
+        disabled={deleting}
+        className="px-3 py-1 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+      >
+        Cancelar
+      </button>
+    </div>
   );
 };
+
 
 /* ============================================
    DETALLE SINGLE
