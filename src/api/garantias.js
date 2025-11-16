@@ -3,9 +3,9 @@ import { fetchWithToken } from "./fetchWithToken";
 
 const API_URL = "http://localhost:8000/api/garantias/";
 
-export const getGarantias = async () => {
-const res = await fetchWithToken(API_URL);
-return await res.json();
+export const getGarantias = async (query = "") => {
+  const res = await fetchWithToken(`${API_URL}${query}`);
+  return await res.json();
 };
 
 export const createGarantia = async (data) => {

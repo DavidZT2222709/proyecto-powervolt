@@ -7,12 +7,20 @@ import {
   deleteGarantia
 } from "../api/garantias";
 import { buscarProductos } from "../api/productos";
+import { fetchWithToken } from "../api/fetchWithToken";
+
+import { useSucursal } from "../context/SucursalContext";
 
 const WarrantiesPanel = () => {
   const [warranties, setWarranties] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  const [sucursales, setSucursales] = useState([]);
+
+  const { selectedSucursal } = useSucursal();
+console.log("Sucursal seleccionada:", selectedSucursal);
 
 
   const [formData, setFormData] = useState({
@@ -29,48 +37,56 @@ const WarrantiesPanel = () => {
 const [productos, setProductos] = useState([]);
 
   const [search, setSearch] = useState("");
+  const API_URL = "http://localhost:8000/api";
 
-const handleSearchProducto = async (texto) => {
-  setSearchProducto(texto);
-
-  if (texto.length < 2) {
-    setProductos([]);
-    return;
-  }
-
+  const fetchSucursales = async () => {
   try {
-    const results = await buscarProductos(texto);
-    setProductos(results);
+    const response = await fetchWithToken(`${API_URL}/sucursales/`);
+    const data = await response.json();
+    setSucursales(data);
   } catch (error) {
-    console.error("Error buscando productos:", error);
+    console.error("Error cargando sucursales:", error);
   }
 };
+
+useEffect(() => {
+  fetchSucursales();
+}, []);
+
+
 
 const handleSelectProducto = (p) => {
-  setFormData({
-    ...formData,
+  setFormData((prev) => ({
+    ...prev,
     producto: p.id,
-    nombre_producto: p.nombre,
-  });
-  setSearchProducto(p.nombre);
-  setProductos([]);
+    nombre_producto: p.nombre
+  }));
+
+  setSearchProducto(p.nombre);   // Cambia inmediatamente el texto del input
+  setProductos([]);              // Cierra la lista
 };
 
 
-  // ✅ Cargar garantías del backend
-  useEffect(() => {
-    loadGarantias();
-  }, []);
 
-  const loadGarantias = async () => {
-    const data = await getGarantias();
-    setWarranties(data);
-  };
+
+useEffect(() => {
+  loadGarantias();
+}, [selectedSucursal]);
+
+
+const loadGarantias = async () => {
+  if (!selectedSucursal) return;
+
+  const data = await getGarantias(`?sucursal=${selectedSucursal.id}`);
+  setWarranties(data);
+};
+
 
 
     const handleOpenModal = (g = null) => {
     if (g) {
       setEditing(g.id);
+      setSearchProducto(g.nombre_producto);
       setFormData({
         serial: g.serial,
         fecha_inicio_garantia: g.fecha_inicio_garantia,
@@ -78,10 +94,11 @@ const handleSelectProducto = (p) => {
         producto: g.producto,
         nombre_producto: g.nombre_producto,
         estado: g.estado,
-        sucursal: g.sucursal,
+        sucursal: selectedSucursal?.id ?? "", 
       });
     } else {
       setEditing(null);
+      setSearchProducto("");
       setFormData({
         serial: "",
         fecha_inicio_garantia: "",
@@ -89,7 +106,7 @@ const handleSelectProducto = (p) => {
         producto: "",
         nombre_producto: "",
         estado: "",
-        sucursal: "",
+        sucursal: selectedSucursal?.id ?? "", 
       });
     }
     setModalOpen(true);
@@ -121,9 +138,48 @@ const handleSelectProducto = (p) => {
 
 
 
+useEffect(() => {
+  if (!selectedSucursal?.id) return;  // ⛔ No busques hasta que exista la sucursal
+
+  const fetchSearchResults = async () => {
+    if (searchProducto.trim() === "") {
+      setProductos([]);
+      return;
+    }
+
+    try {
+      let url = `${API_URL}/productos/?q=${encodeURIComponent(searchProducto)}`;
+
+if (selectedSucursal?.nombre) {
+  url += `&sucursal=${encodeURIComponent(selectedSucursal.nombre)}`;
+}
+
+      console.log("URL que se consulta Productos:", url);
+
+      const response = await fetchWithToken(url);
+      const data = await response.json();
+
+      console.log("Productos encontrados:", data);
+
+      setProductos(data);
+    } catch (error) {
+      console.error("Error al buscar productos:", error);
+    }
+  };
+
+  const delay = setTimeout(fetchSearchResults, 300);
+  return () => clearTimeout(delay);
+}, [searchProducto, selectedSucursal?.nombre]);
+
+
+
+
+
+
   return (
-    <div className="bg-white shadow-md rounded-xl p-6">
+    <div className="rounded-2xl shadow-sm p-4 md:p-6">
       {/* ====== Encabezado ====== */}
+      
       <header className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE GARANTÍAS</h1>
@@ -132,20 +188,14 @@ const handleSelectProducto = (p) => {
           </p>
         </div>
 
-        
-
-        <button
-          onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
-        >
-          <Plus size={18} /> Agregar garantía
-        </button>
-
-
-        
+    
       </header>
+      
 
+<div className="bg-white shadow-md rounded-xl p-6 padding-lg">
               {/* ✅ BUSCADOR */}
+
+              <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
         <div className="relative w-full max-w-xl mb-4 group transition-all">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -175,6 +225,15 @@ const handleSelectProducto = (p) => {
             </button>
           )}
         </div>
+        
+        <button
+          onClick={() => handleOpenModal()}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+        >
+          <Plus size={18} /> Agregar garantía
+        </button>
+
+      </div>
 
       {/* ====== Tabla estilizada ====== */}
       <div className="overflow-x-auto">
@@ -229,6 +288,7 @@ const handleSelectProducto = (p) => {
           </tbody>
         </table>
       </div>
+      </div>
 
       {/* ====== Modal Crear / Editar ====== */}
 
@@ -256,7 +316,8 @@ const handleSelectProducto = (p) => {
                 placeholder="Buscar por nombre o serial"
                 disabled={editing}
                 value={editing ? formData.nombre_producto : searchProducto}
-                onChange={(e) => !editing && handleSearchProducto(e.target.value)}
+                onChange={(e) => !editing && setSearchProducto(e.target.value)}
+
                 className={`border w-full border-gray-300 rounded px-3 py-2 focus:ring focus:ring-blue-200 
                   ${editing && "bg-gray-100 text-gray-600 cursor-not-allowed"}`}
               />
@@ -324,18 +385,7 @@ const handleSelectProducto = (p) => {
 </select>
 
 
-              <label className="text-sm font-semibold">Sucursal</label>
-              <select
-                value={formData.sucursal}
-                onChange={(e) =>
-                  setFormData({ ...formData, sucursal: e.target.value })
-                }
-                className="border border-gray-300 rounded px-3 py-2"
-              >
-                <option value="">Seleccionar...</option>
-                <option value="1">Piedecuesta</option>
-                <option value="2">Bucaramanga</option>
-              </select>
+
 
               <div className="flex justify-end mt-4 gap-2">
                 {/* {editing && (
@@ -384,6 +434,7 @@ const handleSelectProducto = (p) => {
         </div>
       )}
     </div>
+    
   );
 };
 
