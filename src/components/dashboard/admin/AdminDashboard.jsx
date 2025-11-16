@@ -72,9 +72,31 @@ function AdminDashboard() {
   const [exitCount, setExitCount] = useState(0);         // cantidad de salidas
   const [lastEntryText, setLastEntryText] = useState(""); // texto "hace X..." entrada
   const [lastExitText, setLastExitText] = useState("");   // texto "hace X..." salida
+  const [topSoldProducts, setTopSoldProducts] = useState([]);       // top más vendidos
+  const [lowestStockProducts, setLowestStockProducts] = useState([]); // top menor stock
 
+  // Datos del gráfico de ventas por marca
+  const [brandSalesChartData, setBrandSalesChartData] = useState({
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        backgroundColor: [
+          "#2563eb",
+          "#facc15",
+          "#22c55e",
+          "#a855f7",
+          "#f97316",
+          "#14b8a6",
+        ],
+      },
+    ],
+  });
 
   const fetchProductsCount = async () => {
+    // este mapa se devolverá al final
+    let brandMap = {};
+
     try {
       const sucursal = selectedSucursal?.nombre;
       const url = sucursal
@@ -87,22 +109,53 @@ function AdminDashboard() {
       // total de productos
       setProductsCount(Array.isArray(data) ? data.length : 0);
 
-      // contar productos con stock bajo (< 3)
+      // contar productos con stock bajo (<= 3)
       const lowStock = Array.isArray(data)
         ? data.filter((p) => p.stock <= 3).length
         : 0;
-
       setLowStockCount(lowStock);
 
+      if (Array.isArray(data)) {
+        // 🚩 AQUÍ construimos el mapa producto_id -> marca_nombre
+        brandMap = {};
+        data.forEach((p) => {
+          brandMap[p.id] = p.marca_nombre || "Sin marca";
+        });
+
+        // top productos con menor stock
+        const sortedByStockAsc = [...data].sort(
+          (a, b) => (a.stock ?? 0) - (b.stock ?? 0)
+        );
+
+        const topMinStock = sortedByStockAsc.slice(0, 3);
+
+        const mapped = topMinStock.map((p) => ({
+          id: p.id,
+          nombre: `${p.marca_nombre ?? ""} ${p.caja ?? ""} ${
+            p.polaridad ?? ""
+          }`.trim(),
+          stock: p.stock ?? 0,
+        }));
+
+        setLowestStockProducts(mapped);
+      } else {
+        setLowestStockProducts([]);
+      }
     } catch (error) {
       console.error("Error obteniendo cantidad de productos:", error);
       setProductsCount(0);
       setLowStockCount(0);
+      setLowestStockProducts([]);
+      brandMap = {};
     }
+
+    // devolvemos el mapa de marcas para que lo use fetchInventoriesStats
+    return brandMap;
   };
 
+
   // Obtener movimientos de inventario (entradas / salidas) por sucursal
-  const fetchInventoriesStats = async () => {
+  const fetchInventoriesStats = async (brandMap = {}) => {
     try {
       const response = await fetchWithToken(`${API_URL}/inventarios/`);
       const data = await response.json();
@@ -128,6 +181,7 @@ function AdminDashboard() {
           (item.tipo_inventario_nombre || "").toLowerCase().trim() === "salida"
       );
 
+      // Cantidades
       setEntryCount(entradas.length);
       setExitCount(salidas.length);
 
@@ -150,14 +204,78 @@ function AdminDashboard() {
       } else {
         setLastExitText("");
       }
+
+      // Top productos más vendidos (usando inventario + salida)
+      const relevantes = filtered.filter((item) => {
+        const tipo = (item.tipo_inventario_nombre || "").toLowerCase().trim();
+        return tipo === "inventario" || tipo === "salida";
+      });
+
+      const ventasPorProducto = new Map();
+
+      for (const item of relevantes) {
+        const id = item.producto_id;
+        const nombre = item.producto_nombre;
+        const ventas = Number(item.ventas) || 0;
+
+        if (!ventasPorProducto.has(id)) {
+          ventasPorProducto.set(id, { id, nombre, totalVentas: 0 });
+        }
+        ventasPorProducto.get(id).totalVentas += ventas;
+      }
+
+      const topVendidos = Array.from(ventasPorProducto.values())
+        .sort((a, b) => b.totalVentas - a.totalVentas)
+        .slice(0, 3);
+
+      setTopSoldProducts(topVendidos);
+
+      // usamos el brandMap pasado por parámetro
+      const ventasPorMarca = new Map();
+
+      for (const item of relevantes) {
+        const prodId = item.producto_id;
+        const marcaNombre = brandMap[prodId] || "Sin marca";
+        const ventas = Number(item.ventas) || 0;
+
+        if (!ventasPorMarca.has(marcaNombre)) {
+          ventasPorMarca.set(marcaNombre, 0);
+        }
+        ventasPorMarca.set(
+          marcaNombre,
+          ventasPorMarca.get(marcaNombre) + ventas
+        );
+      }
+
+      const labels = Array.from(ventasPorMarca.keys());
+      const values = Array.from(ventasPorMarca.values());
+
+      setBrandSalesChartData((prev) => ({
+        ...prev,
+        labels,
+        datasets: [
+          {
+            ...prev.datasets[0],
+            data: values,
+          },
+        ],
+      }));
     } catch (error) {
       console.error("Error obteniendo movimientos de inventario:", error);
       setEntryCount(0);
       setExitCount(0);
       setLastEntryText("");
       setLastExitText("");
+      setTopSoldProducts([]);
+      setBrandSalesChartData((prev) => ({
+        ...prev,
+        labels: [],
+        datasets: [{ ...prev.datasets[0], data: [] }],
+      }));
     }
   };
+
+
 
 
   // Actualiza el hash al cambiar de vista (esto evita el error al recargar)
@@ -167,18 +285,25 @@ function AdminDashboard() {
 
   // cada vez que cambie la sucursal, recargar productos y movimientos
   useEffect(() => {
-    fetchProductsCount();
-    fetchInventoriesStats();
+    const load = async () => {
+      const brandMap = await fetchProductsCount(); // recibe el mapa
+      await fetchInventoriesStats(brandMap);       // se lo pasa
+    };
+    load();
   }, [selectedSucursal]);
 
-  const data = {
-    labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
-    datasets: [
-      {
-        data: [40, 25, 20, 15],
-        backgroundColor: ["#2563eb", "#facc15", "#22c55e", "#a855f7"],
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false, // permite controlar la altura con CSS
+    plugins: {
+      legend: {
+        position: "right", // ⬅️ leyenda a la derecha
+        labels: {
+          boxWidth: 20,
+        },
       },
-    ],
+    },
   };
 
   return (
@@ -302,40 +427,36 @@ function AdminDashboard() {
                 <h3 className="font-bold mb-3 text-gray-700 flex items-center gap-2">
                   <ShoppingCart /> Top productos más vendidos
                 </h3>
-                <ul className="space-y-2">
-                  <li className="flex justify-between">
-                    <span>Falco R32 - GSP D</span>
-                    <span className="font-bold">45</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Mac R32 - GSP D</span>
-                    <span className="font-bold">30</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Rocket R32 - GSP D</span>
-                    <span className="font-bold">24</span>
-                  </li>
-                </ul>
+                  <ul className="space-y-2">
+                    {topSoldProducts.length === 0 ? (
+                      <li className="text-gray-500 text-sm">Sin datos de ventas</li>
+                    ) : (
+                      topSoldProducts.map((item) => (
+                        <li key={item.id} className="flex justify-between">
+                          <span>{item.nombre}</span>
+                          <span className="font-bold">{item.totalVentas}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
                 <h3 className="font-bold mb-3 text-gray-700 flex items-center gap-2">
                   <Package /> Top productos con menor stock
                 </h3>
-                <ul className="space-y-2">
-                  <li className="flex justify-between text-red-600">
-                    <span>Falco R32 - GSP D</span>
-                    <span className="font-bold">3</span>
-                  </li>
-                  <li className="flex justify-between text-red-600">
-                    <span>Mac R32 - GSP D</span>
-                    <span className="font-bold">2</span>
-                  </li>
-                  <li className="flex justify-between text-red-600">
-                    <span>Rocket R32 - GSP D</span>
-                    <span className="font-bold">4</span>
-                  </li>
-                </ul>
+                  <ul className="space-y-2">
+                    {lowestStockProducts.length === 0 ? (
+                      <li className="text-gray-500 text-sm">Sin datos de stock</li>
+                    ) : (
+                      lowestStockProducts.map((item) => (
+                        <li key={item.id} className="flex justify-between text-red-600">
+                          <span>{item.nombre}</span>
+                          <span className="font-bold">{item.stock}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
               </div>
             </div>
 
@@ -344,7 +465,11 @@ function AdminDashboard() {
                 <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
                   <BarChart3 /> Porcentaje de ventas por marca
                 </h3>
-                <Pie data={data} />
+
+                {/* contenedor con altura fija para que no sea gigante */}
+                <div className="h-80">
+                  <Pie data={brandSalesChartData} options={pieOptions} />
+                </div>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
@@ -369,9 +494,9 @@ function AdminDashboard() {
 
         {activeView === "inventario" && (
           <InventoryPanel
-            onProductsChanged={() => {
-              fetchProductsCount();
-              fetchInventoriesStats(); // ⬅️ NUEVO
+            onProductsChanged={async () => {
+              const brandMap = await fetchProductsCount();
+              await fetchInventoriesStats(brandMap);
             }}
           />
         )}
