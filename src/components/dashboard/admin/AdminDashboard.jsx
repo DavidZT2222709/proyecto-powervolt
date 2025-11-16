@@ -74,6 +74,8 @@ function AdminDashboard() {
   const [lastExitText, setLastExitText] = useState("");   // texto "hace X..." salida
   const [topSoldProducts, setTopSoldProducts] = useState([]);       // top más vendidos
   const [lowestStockProducts, setLowestStockProducts] = useState([]); // top menor stock
+  const [purchaseSuggestions, setPurchaseSuggestions] = useState([]); // sugerencias de compra
+
 
   // Datos del gráfico de ventas por marca
   const [brandSalesChartData, setBrandSalesChartData] = useState({
@@ -96,6 +98,7 @@ function AdminDashboard() {
   const fetchProductsCount = async () => {
     // este mapa se devolverá al final
     let brandMap = {};
+    let stockMap = {};
 
     try {
       const sucursal = selectedSucursal?.nombre;
@@ -116,10 +119,19 @@ function AdminDashboard() {
       setLowStockCount(lowStock);
 
       if (Array.isArray(data)) {
-        // 🚩 AQUÍ construimos el mapa producto_id -> marca_nombre
+        // mapas producto_id -> marca / stock / nombre
         brandMap = {};
+        stockMap = {};
+
         data.forEach((p) => {
           brandMap[p.id] = p.marca_nombre || "Sin marca";
+
+          stockMap[p.id] = {
+            stock: p.stock ?? 0,
+            nombre: `${p.marca_nombre ?? ""} ${p.caja ?? ""} ${
+              p.polaridad ?? ""
+            }`.trim(),
+          };
         });
 
         // top productos con menor stock
@@ -141,21 +153,23 @@ function AdminDashboard() {
       } else {
         setLowestStockProducts([]);
       }
+
     } catch (error) {
       console.error("Error obteniendo cantidad de productos:", error);
       setProductsCount(0);
       setLowStockCount(0);
       setLowestStockProducts([]);
       brandMap = {};
+      stockMap = {};
     }
 
     // devolvemos el mapa de marcas para que lo use fetchInventoriesStats
-    return brandMap;
+    return { brandMap, stockMap };
   };
 
 
   // Obtener movimientos de inventario (entradas / salidas) por sucursal
-  const fetchInventoriesStats = async (brandMap = {}) => {
+  const fetchInventoriesStats = async (brandMap = {}, stockMap = {}) => {
     try {
       const response = await fetchWithToken(`${API_URL}/inventarios/`);
       const data = await response.json();
@@ -230,6 +244,32 @@ function AdminDashboard() {
 
       setTopSoldProducts(topVendidos);
 
+      // Sugerencias de compra: alto ventas + bajo stock
+      const suggestions = Array.from(ventasPorProducto.values())
+        .map((item) => {
+          const info = stockMap[item.id] || {};
+          const stock = info.stock ?? 0;
+
+          // score simple: más ventas y menos stock => score más alto
+          const score = item.totalVentas - stock;
+
+          return {
+            id: item.id,
+            nombre: info.nombre || item.nombre,
+            totalVentas: item.totalVentas,
+            stock,
+            score,
+          };
+        })
+        // ideal: stock menor a 4 y al menos 1 venta
+        .filter((p) => p.stock < 4 && p.totalVentas > 0)
+        // ordenar por prioridad (score desc)
+        .sort((a, b) => b.score - a.score)
+        // máximo 8 sugerencias
+        .slice(0, 8);
+
+      setPurchaseSuggestions(suggestions);
+
       // usamos el brandMap pasado por parámetro
       const ventasPorMarca = new Map();
 
@@ -286,8 +326,8 @@ function AdminDashboard() {
   // cada vez que cambie la sucursal, recargar productos y movimientos
   useEffect(() => {
     const load = async () => {
-      const brandMap = await fetchProductsCount(); // recibe el mapa
-      await fetchInventoriesStats(brandMap);       // se lo pasa
+      const { brandMap, stockMap } = await fetchProductsCount();
+      await fetchInventoriesStats(brandMap, stockMap);
     };
     load();
   }, [selectedSucursal]);
@@ -477,15 +517,18 @@ function AdminDashboard() {
                   <ClipboardList /> Sugerencias de compra
                 </h3>
                 <ul className="space-y-2">
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería X
-                  </li>
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería Y
-                  </li>
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería Z
-                  </li>
+                  {purchaseSuggestions.length === 0 ? (
+                    <li className="text-gray-500 text-sm">Sin sugerencias por ahora</li>
+                  ) : (
+                    purchaseSuggestions.map((item) => (
+                      <li
+                        key={item.id}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition"
+                      >
+                        {item.nombre}
+                      </li>
+                    ))
+                  )}
                 </ul>
               </div>
             </div>
@@ -495,8 +538,8 @@ function AdminDashboard() {
         {activeView === "inventario" && (
           <InventoryPanel
             onProductsChanged={async () => {
-              const brandMap = await fetchProductsCount();
-              await fetchInventoriesStats(brandMap);
+              const { brandMap, stockMap } = await fetchProductsCount();
+              await fetchInventoriesStats(brandMap, stockMap);
             }}
           />
         )}
