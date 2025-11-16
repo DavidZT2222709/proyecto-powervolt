@@ -21,11 +21,40 @@ import UserManagement from "./UserManagement.jsx";
 import HistoryPanel from "./HistoryPanel";
 import BranchesPanel from "./BranchesPanel.jsx"
 import WarrantiesPanel from './WarrantiesPanel.jsx';
+import { fetchWithToken } from "../../../api/fetchWithToken.js";
+import { useSucursal } from "../../../context/SucursalContext";
+
+const API_URL = "http://localhost:8000/api";
+
+// Formatea un ISO date a "hace Xmin / hace Xh / hace X días"
+const formatTimeAgo = (isoString) => {
+  if (!isoString) return "";
+
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return "hace menos de 1 min";
+  if (diffMinutes < 60) return `hace ${diffMinutes} min`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `hace ${diffHours}h`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `hace ${diffDays} día${diffDays === 1 ? "" : "s"}`;
+};
 
 
 function AdminDashboard() {
+
+  // sucursal desde el contexto
+  const { selectedSucursal } = useSucursal();
+
   // Detectar si hay un hash en la URL (#/admin/usuarios, etc.)
   const getInitialView = () => {
+
+
     const hash = window.location.hash;
     if (hash.includes("inventario")) return "inventario";
     if (hash.includes("usuarios")) return "usuarios";
@@ -36,11 +65,111 @@ function AdminDashboard() {
   };
 
   const [activeView, setActiveView] = useState(getInitialView);
+  const [productsCount, setProductsCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
 
-  // 🔹 Actualiza el hash al cambiar de vista (esto evita el error al recargar)
+  const [entryCount, setEntryCount] = useState(0);       // cantidad de entradas
+  const [exitCount, setExitCount] = useState(0);         // cantidad de salidas
+  const [lastEntryText, setLastEntryText] = useState(""); // texto "hace X..." entrada
+  const [lastExitText, setLastExitText] = useState("");   // texto "hace X..." salida
+
+
+  const fetchProductsCount = async () => {
+    try {
+      const sucursal = selectedSucursal?.nombre;
+      const url = sucursal
+        ? `${API_URL}/productos/?sucursal=${encodeURIComponent(sucursal)}`
+        : `${API_URL}/productos/`;
+
+      const response = await fetchWithToken(url);
+      const data = await response.json();
+
+      // total de productos
+      setProductsCount(Array.isArray(data) ? data.length : 0);
+
+      // contar productos con stock bajo (< 3)
+      const lowStock = Array.isArray(data)
+        ? data.filter((p) => p.stock <= 3).length
+        : 0;
+
+      setLowStockCount(lowStock);
+
+    } catch (error) {
+      console.error("Error obteniendo cantidad de productos:", error);
+      setProductsCount(0);
+      setLowStockCount(0);
+    }
+  };
+
+  // Obtener movimientos de inventario (entradas / salidas) por sucursal
+  const fetchInventoriesStats = async () => {
+    try {
+      const response = await fetchWithToken(`${API_URL}/inventarios/`);
+      const data = await response.json();
+
+      const sucursalName = selectedSucursal?.nombre;
+
+      // Filtrar por sucursal si hay una seleccionada
+      const filtered = Array.isArray(data)
+        ? sucursalName
+          ? data.filter((item) => item.sucursal_nombre === sucursalName)
+          : data
+        : [];
+
+      // Entradas
+      const entradas = filtered.filter(
+        (item) =>
+          (item.tipo_inventario_nombre || "").toLowerCase().trim() === "entrada"
+      );
+
+      // Salidas
+      const salidas = filtered.filter(
+        (item) =>
+          (item.tipo_inventario_nombre || "").toLowerCase().trim() === "salida"
+      );
+
+      setEntryCount(entradas.length);
+      setExitCount(salidas.length);
+
+      // Última entrada (por fecha_creacion)
+      if (entradas.length > 0) {
+        const ultimaEntrada = entradas.reduce((latest, item) =>
+          !latest || item.fecha_creacion > latest.fecha_creacion ? item : latest
+        );
+        setLastEntryText(formatTimeAgo(ultimaEntrada.fecha_creacion));
+      } else {
+        setLastEntryText("");
+      }
+
+      // Última salida (por fecha_creacion)
+      if (salidas.length > 0) {
+        const ultimaSalida = salidas.reduce((latest, item) =>
+          !latest || item.fecha_creacion > latest.fecha_creacion ? item : latest
+        );
+        setLastExitText(formatTimeAgo(ultimaSalida.fecha_creacion));
+      } else {
+        setLastExitText("");
+      }
+    } catch (error) {
+      console.error("Error obteniendo movimientos de inventario:", error);
+      setEntryCount(0);
+      setExitCount(0);
+      setLastEntryText("");
+      setLastExitText("");
+    }
+  };
+
+
+  // Actualiza el hash al cambiar de vista (esto evita el error al recargar)
   useEffect(() => {
     window.location.hash = `#/admin/${activeView}`;
   }, [activeView]);
+
+  // cada vez que cambie la sucursal, recargar productos y movimientos
+  useEffect(() => {
+    fetchProductsCount();
+    fetchInventoriesStats();
+  }, [selectedSucursal]);
 
   const data = {
     labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
@@ -140,8 +269,8 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Productos registrados</h2>
                   <BarChart3 />
                 </div>
-                <p className="text-3xl font-bold">3</p>
-                <p className="text-sm">2 con stock bajo</p>
+                <p className="text-3xl font-bold">{productsCount}</p>
+                <p className="text-sm">{lowStockCount} con stock bajo</p>
               </div>
 
               <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow hover:scale-105 transition transform">
@@ -149,8 +278,10 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Movimientos de entrada</h2>
                   <TrendingUp />
                 </div>
-                <p className="text-3xl font-bold">23</p>
-                <p className="text-sm">Último registro hace 1h</p>
+                <p className="text-3xl font-bold">{entryCount}</p>
+                <p className="text-sm">
+                  {lastEntryText ? `Último registro ${lastEntryText}` : "Sin registros"}
+                </p>
               </div>
 
               <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-6 rounded-xl shadow hover:scale-105 transition transform">
@@ -158,8 +289,10 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Movimientos de salida</h2>
                   <TrendingDown />
                 </div>
-                <p className="text-3xl font-bold">18</p>
-                <p className="text-sm">Último registro hace 30min</p>
+                <p className="text-3xl font-bold">{exitCount}</p>
+                <p className="text-sm">
+                  {lastExitText ? `Último registro ${lastExitText}` : "Sin registros"}
+                </p>
               </div>
             </div>
 
@@ -234,7 +367,14 @@ function AdminDashboard() {
           </>
         )}
 
-        {activeView === "inventario" && <InventoryPanel />}
+        {activeView === "inventario" && (
+          <InventoryPanel
+            onProductsChanged={() => {
+              fetchProductsCount();
+              fetchInventoriesStats(); // ⬅️ NUEVO
+            }}
+          />
+        )}
         {activeView === "usuarios" && <UserManagement />}
         {activeView === "historial" && <HistoryPanel />}
         {activeView === "garantias" && <WarrantiesPanel />}
