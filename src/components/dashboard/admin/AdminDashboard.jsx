@@ -353,6 +353,9 @@ function AdminDashboard() {
             diffMs / (1000 * 60 * 60 * 24)
           );
 
+          // 👇 Si ya no quedan días, no la mostramos en el banner
+          if (daysLeft <= 0) return;
+
           expiring.push({
             ...g,
             diasRestantes: daysLeft,
