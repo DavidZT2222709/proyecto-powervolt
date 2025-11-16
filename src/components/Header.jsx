@@ -1,23 +1,35 @@
 import React, { useState, useEffect } from "react";
-import { Home, User, LogOut, Edit3 } from "lucide-react";
+import { Home, User, LogOut, Edit3, Tags, Trash2, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getUsers, getRoles } from "../api/usuarios";
 import { getSucursales } from "../api/sucursales";
 import { useSucursal } from "../context/SucursalContext";
 import { toast } from "react-hot-toast";
+import { fetchWithToken } from "../api/fetchWithToken.js";
 
+const API_URL = "http://localhost:8000/api";
 const EMPTY_LABEL = "Sucursales";
 const LS_SELECTED = "selected_sucursal";
 
 function Header() {
   const [isLocationOpen, setIsLocationOpen] = useState(false);
   const [isUserOpen, setIsUserOpen] = useState(false);
+
+  // Perfil
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
+  // Marcas
+  const [isMarcaModalOpen, setIsMarcaModalOpen] = useState(false);
+  const [marcas, setMarcas] = useState([]);
+  const [editingMarca, setEditingMarca] = useState(null);
+  const [marcaNombre, setMarcaNombre] = useState("");
+
+  // Scroll header
   const [visible, setVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
 
+  // Perfil
   const [profileData, setProfileData] = useState({
     name: "",
     email: "",
@@ -31,14 +43,13 @@ function Header() {
   const [sucursales, setSucursales] = useState([]);
   const navigate = useNavigate();
 
-  // ===== Detectar scroll para ocultar/mostrar header =====
+  //=========================== SCROLL HEADER ===========================//
   useEffect(() => {
     const handleScroll = () => {
       if (window.scrollY > lastScrollY && window.scrollY > 80) {
         setVisible(false);
-      } else {
-        setVisible(true);
-      }
+      } else setVisible(true);
+
       setLastScrollY(window.scrollY);
     };
 
@@ -46,13 +57,12 @@ function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [lastScrollY]);
 
-  // ---------- Persistir selección ----------
+  //=========================== SUCURSALES ==============================//
   const persistSelected = (s) => {
-    if (s && s.id != null) localStorage.setItem(LS_SELECTED, String(s.id));
+    if (s?.id != null) localStorage.setItem(LS_SELECTED, String(s.id));
     else localStorage.removeItem(LS_SELECTED);
   };
 
-  // ---------- Cargar sucursales ----------
   const refreshSucursales = async (opts = {}) => {
     try {
       const list = (await getSucursales()) || [];
@@ -112,10 +122,9 @@ function Header() {
 
     window.addEventListener("sucursalesActualizadas", onUpdate);
     return () => window.removeEventListener("sucursalesActualizadas", onUpdate);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---------- Cargar datos del usuario ----------
+  //=========================== PERFIL ================================//
   const loadUserData = async () => {
     const cachedStr = localStorage.getItem("user");
     const emailActual = localStorage.getItem("userEmail") || "";
@@ -138,8 +147,8 @@ function Header() {
       const roles = await getRoles();
       const rolesMap = roles.reduce((acc, r) => ({ ...acc, [r.id]: r.nombre }), {});
       const usuarios = await getUsers();
-
       let u = usuarios.find((x) => x.email === emailActual) || usuarios[0];
+
       if (u) {
         setProfileData((prev) => ({
           ...prev,
@@ -161,25 +170,91 @@ function Header() {
     loadUserData();
   }, []);
 
-  // ---------- Logout ----------
+  //=========================== LOGOUT ===============================//
   const handleLogout = () => {
     ["access_token", "refresh_token", "userRole", "userEmail", "user", LS_SELECTED].forEach((k) =>
       localStorage.removeItem(k)
     );
-
     toast.success("Sesión cerrada correctamente");
-
     setTimeout(() => navigate("/", { replace: true }), 800);
   };
 
-  // ---------- Guardar perfil ----------
-  const handleProfileSave = () => {
-    toast.success("Información actualizada correctamente");
-    setIsEditing(false);
-    loadUserData();
+  //=========================== MARCAS CRUD ==========================//
+  const cargarMarcas = async () => {
+    try {
+      const res = await fetchWithToken(`${API_URL}/marcas/`);
+      const data = await res.json();
+      setMarcas(data);
+    } catch {
+      toast.error("Error cargando marcas");
+    }
   };
 
-  // ---------- Estilos ----------
+  const crearMarca = async () => {
+    if (!marcaNombre.trim()) return toast.error("El nombre es obligatorio");
+
+    try {
+      const res = await fetchWithToken(`${API_URL}/marcas/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: marcaNombre }),
+      });
+
+      if (!res.ok) {
+        toast.error("No se pudo crear la marca");
+        return;
+      }
+
+      toast.success("Marca creada");
+      setMarcaNombre("");
+      cargarMarcas();
+    } catch {
+      toast.error("Error creando marca");
+    }
+  };
+
+  const actualizarMarca = async () => {
+    if (!marcaNombre.trim()) return toast.error("Ingrese un nombre válido");
+
+    try {
+      const res = await fetchWithToken(`${API_URL}/marcas/${editingMarca.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: marcaNombre }),
+      });
+
+      if (!res.ok) {
+        toast.error("No se pudo actualizar la marca");
+        return;
+      }
+
+      toast.success("Marca actualizada");
+      setEditingMarca(null);
+      setMarcaNombre("");
+      cargarMarcas();
+    } catch {
+      toast.error("Error actualizando marca");
+    }
+  };
+
+  const eliminarMarca = async (id) => {
+    if (!confirm("¿Eliminar esta marca?")) return;
+
+    try {
+      const res = await fetchWithToken(`${API_URL}/marcas/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Marca eliminada");
+        cargarMarcas();
+      }
+    } catch {
+      toast.error("Error eliminando marca");
+    }
+  };
+
+  //========== Estilos Rol ==========//
   const roleStyles =
     profileData.role === "Administrador"
       ? "bg-white text-gray-800 border border-gray-300"
@@ -190,6 +265,7 @@ function Header() {
 
   return (
     <>
+      {/* ================= HEADER ================= */}
       <header
         className={`fixed top-0 right-0 w-full flex justify-end items-center space-x-4 p-4 pr-10 
         transition-transform duration-500 z-50 ${
@@ -197,7 +273,7 @@ function Header() {
         }`}
         style={{ background: "transparent", boxShadow: "none" }}
       >
-        {/* Botón Sucursal */}
+        {/* Sucursales */}
         <div className="relative">
           <button
             onClick={() => setIsLocationOpen(!isLocationOpen)}
@@ -265,6 +341,18 @@ function Header() {
                 >
                   <Edit3 size={16} /> Mi perfil
                 </li>
+
+                {/* NUEVA OPCIÓN MARCAS */}
+                <li
+                  onClick={() => {
+                    cargarMarcas();
+                    setIsMarcaModalOpen(true);
+                    setIsUserOpen(false);
+                  }}
+                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center gap-2"
+                >
+                  <Tags size={16} /> Marcas
+                </li>
               </ul>
             </div>
           )}
@@ -279,7 +367,91 @@ function Header() {
         </button>
       </header>
 
-      {/* Modal Perfil */}
+      {/* ================= MODAL MARCAS ================= */}
+      {isMarcaModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-[9999]">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+            <button
+              onClick={() => {
+                setIsMarcaModalOpen(false);
+                setMarcaNombre("");
+                setEditingMarca(null);
+              }}
+              className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-2xl font-bold text-center text-blue-600 mb-4">
+              Marcas
+            </h2>
+
+            {/* Form */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                placeholder="Nombre de la marca"
+                value={marcaNombre}
+                onChange={(e) => setMarcaNombre(e.target.value)}
+                className="flex-1 border rounded-md px-3 py-2"
+              />
+
+              {!editingMarca ? (
+                <button
+                  onClick={crearMarca}
+                  className="bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700"
+                >
+                  Agregar
+                </button>
+              ) : (
+                <button
+                  onClick={actualizarMarca}
+                  className="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700"
+                >
+                  Guardar
+                </button>
+              )}
+            </div>
+
+            {/* LISTADO */}
+            <ul className="space-y-2 max-h-60 overflow-auto">
+              {marcas.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex justify-between items-center bg-gray-100 p-2 rounded-md"
+                >
+                  <span>{m.nombre}</span>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingMarca(m);
+                        setMarcaNombre(m.nombre);
+                      }}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      <Pencil size={18} />
+                    </button>
+
+                    <button
+                      onClick={() => eliminarMarca(m.id)}
+                      className="text-red-600 hover:text-red-800"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </li>
+              ))}
+
+              {marcas.length === 0 && (
+                <p className="text-center text-gray-500">Sin marcas registradas</p>
+              )}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL PERFIL ================= */}
       {isProfileModalOpen && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-[9999]">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
@@ -300,25 +472,6 @@ function Header() {
                 alt="Avatar"
                 className="w-24 h-24 rounded-full mb-3 border border-gray-300 object-cover"
               />
-              {isEditing && (
-                <label className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm cursor-pointer hover:bg-blue-700">
-                  Cambiar foto
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () =>
-                          setProfileData({ ...profileData, avatar: reader.result });
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              )}
             </div>
 
             <div className="space-y-3">
@@ -395,7 +548,11 @@ function Header() {
                     Cancelar
                   </button>
                   <button
-                    onClick={handleProfileSave}
+                    onClick={() => {
+                      toast.success("Información actualizada correctamente");
+                      setIsEditing(false);
+                      loadUserData();
+                    }}
                     className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
                   >
                     Guardar cambios
