@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Building2 } from "lucide-react";
 import { fetchWithToken } from "../../../api/fetchWithToken.js";
-import { ToastContainer, toast } from "react-toastify";   // <-- IMPORTANTE
-import "react-toastify/dist/ReactToastify.css";           // <-- IMPORTANTE
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const API_URL = "http://localhost:8000/api";
 
@@ -26,7 +26,9 @@ const BranchesPanel = () => {
       const data = await response.json();
       setBranches(Array.isArray(data) ? data : []);
 
-      toast.success("Sucursales cargadas correctamente");
+      // ❌ Quitamos el toast que generaba notificaciones duplicadas
+      // toast.success("Sucursales cargadas correctamente");
+
     } catch (error) {
       console.error("Error al cargar las sucursales:", error);
       toast.error("Error al cargar sucursales");
@@ -36,6 +38,18 @@ const BranchesPanel = () => {
 
   useEffect(() => {
     fetchBranches();
+    
+    // Mostrar toast después del reload si existe en localStorage
+    const savedToast = localStorage.getItem('branchToast');
+    if (savedToast) {
+      const { message, type } = JSON.parse(savedToast);
+      if (type === 'success') {
+        toast.success(message);
+      } else if (type === 'error') {
+        toast.error(message);
+      }
+      localStorage.removeItem('branchToast');
+    }
   }, []);
 
   const handleOpenModal = (branch = null) => {
@@ -53,7 +67,8 @@ const BranchesPanel = () => {
     setModalOpen(true);
   };
 
-  const hardReload = () => {
+  const hardReloadWithToast = (message, type = 'success') => {
+    localStorage.setItem('branchToast', JSON.stringify({ message, type }));
     window.location.reload();
   };
 
@@ -78,9 +93,8 @@ const BranchesPanel = () => {
       window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { changed: true } }));
       setModalOpen(false);
 
-      toast.success(editing ? "Sucursal actualizada" : "Sucursal creada");
-
-      hardReload();
+      const successMessage = editing ? "Sucursal actualizada" : "Sucursal creada";
+      hardReloadWithToast(successMessage, 'success');
     } catch (error) {
       console.error("Error al guardar la sucursal:", error);
       toast.error("No se pudo guardar la sucursal");
@@ -98,19 +112,18 @@ const BranchesPanel = () => {
 
       window.dispatchEvent(new CustomEvent("sucursalesActualizadas", { detail: { deletedId: id } }));
 
-      toast.success("Sucursal eliminada");
+      hardReloadWithToast("Sucursal eliminada", 'success');
     } catch (error) {
       console.error("Error al eliminar la sucursal:", error);
       toast.error("No se pudo eliminar la sucursal");
     } finally {
       setDeleteModal(false);
-      hardReload();
     }
   };
 
   return (
     <div className="rounded-2xl shadow-sm">
-      {/* ===== Encabezado ===== */}
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">GESTIÓN DE SUCURSALES</h1>
         <p className="text-gray-500">
@@ -118,7 +131,6 @@ const BranchesPanel = () => {
         </p>
       </div>
 
-      {/* ===== Botón principal ===== */}
       <div className="flex justify-start mb-4">
         <button
           onClick={() => handleOpenModal()}
@@ -128,7 +140,6 @@ const BranchesPanel = () => {
         </button>
       </div>
 
-      {/* ===== Listado ===== */}
       <div className="bg-white rounded-2xl shadow-md p-6">
         {branches.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
@@ -179,7 +190,6 @@ const BranchesPanel = () => {
         )}
       </div>
 
-      {/* ===== Modal Crear / Editar ===== */}
       {modalOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 relative">
@@ -253,7 +263,6 @@ const BranchesPanel = () => {
         </div>
       )}
 
-      {/* ===== Modal Confirmar Eliminación ===== */}
       {deleteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-6 text-center">
@@ -279,7 +288,6 @@ const BranchesPanel = () => {
         </div>
       )}
 
-      {/* 🔔 CONTENEDOR GLOBAL DE TOASTIFY */}
       <ToastContainer
         position="bottom-right"
         autoClose={2500}

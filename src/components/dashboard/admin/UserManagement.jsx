@@ -184,7 +184,7 @@ const UserManagement = () => {
   );
 
   return (
-    <div className="rounded-2xl shadow-sm p-4 md:p-6">
+    <div className="rounded-2xl shadow-sm">
 
       {/* ===== Encabezado ===== */}
       <div className="mb-8">
