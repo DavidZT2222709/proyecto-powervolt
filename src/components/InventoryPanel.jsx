@@ -54,7 +54,7 @@ function getCurrentUserId() {
 }
 //////////////////////////////////////////////////
 
-const InventoryPanel = () => {
+const InventoryPanel = ({ onProductsChanged }) => {
   const [modal, setModal] = useState({ open: false, type: "", product: null });
   const [quickEntry, setQuickEntry] = useState({
     cantidad: "",
@@ -151,6 +151,9 @@ const InventoryPanel = () => {
       const response = await fetchWithToken(url);
       const data = await response.json();
       setProducts(data);
+      if (onProductsChanged) {
+        onProductsChanged();
+      }
     } catch (error) {
       console.error("Error fetching products:", error);
       toast.error("Error al cargar los productos");

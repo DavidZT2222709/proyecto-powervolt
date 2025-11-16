@@ -14,6 +14,7 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
+  AlertOctagon,
 } from "lucide-react";
 
 import InventoryPanel from "../../InventoryPanel.jsx";
@@ -21,11 +22,41 @@ import UserManagement from "./UserManagement.jsx";
 import HistoryPanel from "../../HistoryPanel.jsx";
 import BranchesPanel from "./BranchesPanel.jsx"
 import WarrantiesPanel from '../../WarrantiesPanel.jsx';
+import { fetchWithToken } from "../../../api/fetchWithToken.js";
+import { getGarantias } from "../../../api/garantias";
+import { useSucursal } from "../../../context/SucursalContext";
+
+const API_URL = "http://localhost:8000/api";
+
+// Formatea un ISO date a "hace Xmin / hace Xh / hace X días"
+const formatTimeAgo = (isoString) => {
+  if (!isoString) return "";
+
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  if (diffMinutes < 1) return "hace menos de 1 min";
+  if (diffMinutes < 60) return `hace ${diffMinutes} min`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `hace ${diffHours}h`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `hace ${diffDays} día${diffDays === 1 ? "" : "s"}`;
+};
 
 
 function AdminDashboard() {
+
+  // sucursal desde el contexto
+  const { selectedSucursal } = useSucursal();
+
   // Detectar si hay un hash en la URL (#/admin/usuarios, etc.)
   const getInitialView = () => {
+
+
     const hash = window.location.hash;
     if (hash.includes("inventario")) return "inventario";
     if (hash.includes("usuarios")) return "usuarios";
@@ -36,20 +67,336 @@ function AdminDashboard() {
   };
 
   const [activeView, setActiveView] = useState(getInitialView);
+  const [productsCount, setProductsCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
 
-  // 🔹 Actualiza el hash al cambiar de vista (esto evita el error al recargar)
+  const [entryCount, setEntryCount] = useState(0);       // cantidad de entradas
+  const [exitCount, setExitCount] = useState(0);         // cantidad de salidas
+  const [lastEntryText, setLastEntryText] = useState(""); // texto "hace X..." entrada
+  const [lastExitText, setLastExitText] = useState("");   // texto "hace X..." salida
+  const [topSoldProducts, setTopSoldProducts] = useState([]);       // top más vendidos
+  const [lowestStockProducts, setLowestStockProducts] = useState([]); // top menor stock
+  const [purchaseSuggestions, setPurchaseSuggestions] = useState([]); // sugerencias de compra
+  const [expiringWarranties, setExpiringWarranties] = useState([]);   // garantías próximas a vencer
+
+
+  // Datos del gráfico de ventas por marca
+  const [brandSalesChartData, setBrandSalesChartData] = useState({
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        backgroundColor: [
+          "#2563eb",
+          "#facc15",
+          "#22c55e",
+          "#a855f7",
+          "#f97316",
+          "#14b8a6",
+        ],
+      },
+    ],
+  });
+
+  const fetchProductsCount = async () => {
+    // este mapa se devolverá al final
+    let brandMap = {};
+    let stockMap = {};
+
+    try {
+      const sucursal = selectedSucursal?.nombre;
+      const url = sucursal
+        ? `${API_URL}/productos/?sucursal=${encodeURIComponent(sucursal)}`
+        : `${API_URL}/productos/`;
+
+      const response = await fetchWithToken(url);
+      const data = await response.json();
+
+      // total de productos
+      setProductsCount(Array.isArray(data) ? data.length : 0);
+
+      // contar productos con stock bajo (<= 3)
+      const lowStock = Array.isArray(data)
+        ? data.filter((p) => p.stock <= 3).length
+        : 0;
+      setLowStockCount(lowStock);
+
+      if (Array.isArray(data)) {
+        // mapas producto_id -> marca / stock / nombre
+        brandMap = {};
+        stockMap = {};
+
+        data.forEach((p) => {
+          brandMap[p.id] = p.marca_nombre || "Sin marca";
+
+          stockMap[p.id] = {
+            stock: p.stock ?? 0,
+            nombre: `${p.marca_nombre ?? ""} ${p.caja ?? ""} ${
+              p.polaridad ?? ""
+            }`.trim(),
+          };
+        });
+
+        // top productos con menor stock
+        const sortedByStockAsc = [...data].sort(
+          (a, b) => (a.stock ?? 0) - (b.stock ?? 0)
+        );
+
+        const topMinStock = sortedByStockAsc.slice(0, 3);
+
+        const mapped = topMinStock.map((p) => ({
+          id: p.id,
+          nombre: `${p.marca_nombre ?? ""} ${p.caja ?? ""} ${
+            p.polaridad ?? ""
+          }`.trim(),
+          stock: p.stock ?? 0,
+        }));
+
+        setLowestStockProducts(mapped);
+      } else {
+        setLowestStockProducts([]);
+      }
+
+    } catch (error) {
+      console.error("Error obteniendo cantidad de productos:", error);
+      setProductsCount(0);
+      setLowStockCount(0);
+      setLowestStockProducts([]);
+      brandMap = {};
+      stockMap = {};
+    }
+
+    // devolvemos el mapa de marcas para que lo use fetchInventoriesStats
+    return { brandMap, stockMap };
+  };
+
+
+  // Obtener movimientos de inventario (entradas / salidas) por sucursal
+  const fetchInventoriesStats = async (brandMap = {}, stockMap = {}) => {
+    try {
+      const response = await fetchWithToken(`${API_URL}/inventarios/`);
+      const data = await response.json();
+
+      const sucursalName = selectedSucursal?.nombre;
+
+      // Filtrar por sucursal si hay una seleccionada
+      const filtered = Array.isArray(data)
+        ? sucursalName
+          ? data.filter((item) => item.sucursal_nombre === sucursalName)
+          : data
+        : [];
+
+      // Entradas
+      const entradas = filtered.filter(
+        (item) =>
+          (item.tipo_inventario_nombre || "").toLowerCase().trim() === "entrada"
+      );
+
+      // Salidas
+      const salidas = filtered.filter(
+        (item) =>
+          (item.tipo_inventario_nombre || "").toLowerCase().trim() === "salida"
+      );
+
+      // Cantidades
+      setEntryCount(entradas.length);
+      setExitCount(salidas.length);
+
+      // Última entrada (por fecha_creacion)
+      if (entradas.length > 0) {
+        const ultimaEntrada = entradas.reduce((latest, item) =>
+          !latest || item.fecha_creacion > latest.fecha_creacion ? item : latest
+        );
+        setLastEntryText(formatTimeAgo(ultimaEntrada.fecha_creacion));
+      } else {
+        setLastEntryText("");
+      }
+
+      // Última salida (por fecha_creacion)
+      if (salidas.length > 0) {
+        const ultimaSalida = salidas.reduce((latest, item) =>
+          !latest || item.fecha_creacion > latest.fecha_creacion ? item : latest
+        );
+        setLastExitText(formatTimeAgo(ultimaSalida.fecha_creacion));
+      } else {
+        setLastExitText("");
+      }
+
+      // Top productos más vendidos (usando inventario + salida)
+      const relevantes = filtered.filter((item) => {
+        const tipo = (item.tipo_inventario_nombre || "").toLowerCase().trim();
+        return tipo === "inventario" || tipo === "salida";
+      });
+
+      const ventasPorProducto = new Map();
+
+      for (const item of relevantes) {
+        const id = item.producto_id;
+        const nombre = item.producto_nombre;
+        const ventas = Number(item.ventas) || 0;
+
+        if (!ventasPorProducto.has(id)) {
+          ventasPorProducto.set(id, { id, nombre, totalVentas: 0 });
+        }
+        ventasPorProducto.get(id).totalVentas += ventas;
+      }
+
+      const topVendidos = Array.from(ventasPorProducto.values())
+        .sort((a, b) => b.totalVentas - a.totalVentas)
+        .slice(0, 3);
+
+      setTopSoldProducts(topVendidos);
+
+      // Sugerencias de compra: alto ventas + bajo stock
+      const suggestions = Array.from(ventasPorProducto.values())
+        .map((item) => {
+          const info = stockMap[item.id] || {};
+          const stock = info.stock ?? 0;
+
+          // score simple: más ventas y menos stock => score más alto
+          const score = item.totalVentas - stock;
+
+          return {
+            id: item.id,
+            nombre: info.nombre || item.nombre,
+            totalVentas: item.totalVentas,
+            stock,
+            score,
+          };
+        })
+        // ideal: stock menor a 4 y al menos 1 venta
+        .filter((p) => p.stock < 4 && p.totalVentas > 0)
+        // ordenar por prioridad (score desc)
+        .sort((a, b) => b.score - a.score)
+        // máximo 8 sugerencias
+        .slice(0, 8);
+
+      setPurchaseSuggestions(suggestions);
+
+      // usamos el brandMap pasado por parámetro
+      const ventasPorMarca = new Map();
+
+      for (const item of relevantes) {
+        const prodId = item.producto_id;
+        const marcaNombre = brandMap[prodId] || "Sin marca";
+        const ventas = Number(item.ventas) || 0;
+
+        if (!ventasPorMarca.has(marcaNombre)) {
+          ventasPorMarca.set(marcaNombre, 0);
+        }
+        ventasPorMarca.set(
+          marcaNombre,
+          ventasPorMarca.get(marcaNombre) + ventas
+        );
+      }
+
+      const labels = Array.from(ventasPorMarca.keys());
+      const values = Array.from(ventasPorMarca.values());
+
+      setBrandSalesChartData((prev) => ({
+        ...prev,
+        labels,
+        datasets: [
+          {
+            ...prev.datasets[0],
+            data: values,
+          },
+        ],
+      }));
+    } catch (error) {
+      console.error("Error obteniendo movimientos de inventario:", error);
+      setEntryCount(0);
+      setExitCount(0);
+      setLastEntryText("");
+      setLastExitText("");
+      setTopSoldProducts([]);
+      setBrandSalesChartData((prev) => ({
+        ...prev,
+        labels: [],
+        datasets: [{ ...prev.datasets[0], data: [] }],
+      }));
+    }
+  };
+
+  // Garantías que vencen en los próximos 7 días
+  const fetchExpiringWarranties = async () => {
+    // si no hay sucursal seleccionada, limpiar y salir
+    if (!selectedSucursal?.id) {
+      setExpiringWarranties([]);
+      return;
+    }
+
+    try {
+      // usamos el mismo helper que en WarrantiesPanel
+      const data = await getGarantias(`?sucursal=${selectedSucursal.id}`);
+
+      const now = new Date();
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+      const expiring = [];
+
+      data.forEach((g) => {
+        if (!g.fecha_fin_garantia) return;
+
+        const end = new Date(g.fecha_fin_garantia);
+        if (isNaN(end.getTime())) return;
+
+        const diffMs = end - now;
+
+        // solo las garantías ACTIVAS que vencen entre hoy y 7 días
+        if (
+          diffMs > 0 &&
+          diffMs <= weekMs &&
+          (g.nombre_estado === "Activa" || g.estado === 1)
+        ) {
+          const daysLeft = Math.ceil(
+            diffMs / (1000 * 60 * 60 * 24)
+          );
+
+          // 👇 Si ya no quedan días, no la mostramos en el banner
+          if (daysLeft <= 0) return;
+
+          expiring.push({
+            ...g,
+            diasRestantes: daysLeft,
+          });
+        }
+      });
+
+      setExpiringWarranties(expiring);
+    } catch (error) {
+      console.error("Error obteniendo garantías próximas a vencer:", error);
+      setExpiringWarranties([]);
+    }
+  };
+
+  // Actualiza el hash al cambiar de vista (esto evita el error al recargar)
   useEffect(() => {
     window.location.hash = `#/admin/${activeView}`;
   }, [activeView]);
 
-  const data = {
-    labels: ["Marca A", "Marca B", "Marca C", "Marca D"],
-    datasets: [
-      {
-        data: [40, 25, 20, 15],
-        backgroundColor: ["#2563eb", "#facc15", "#22c55e", "#a855f7"],
+  // cada vez que cambie la sucursal, recargar productos y movimientos
+  useEffect(() => {
+    const load = async () => {
+      const { brandMap, stockMap } = await fetchProductsCount();
+      await fetchInventoriesStats(brandMap, stockMap);
+      await fetchExpiringWarranties();
+    };
+    load();
+  }, [selectedSucursal]);
+
+
+  const pieOptions = {
+    responsive: true,
+    maintainAspectRatio: false, // permite controlar la altura con CSS
+    plugins: {
+      legend: {
+        position: "right", // ⬅️ leyenda a la derecha
+        labels: {
+          boxWidth: 20,
+        },
       },
-    ],
+    },
   };
 
   return (
@@ -122,16 +469,50 @@ function AdminDashboard() {
         {activeView === "dashboard" && (
           <>
             {/* HEADER */}
-            <header className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800">
-                  Panel de Administración
-                </h1>
-                <p className="text-gray-500">
-                  Bienvenido al sistema de gestión PowerStock
-                </p>
-              </div>
+            <header className="mb-4">
+              <h1 className="text-3xl font-bold text-gray-800">
+                Panel de Administración
+              </h1>
+              <p className="text-gray-500">
+                Bienvenido al sistema de gestión PowerStock
+              </p>
             </header>
+
+            {expiringWarranties.length > 0 && (
+              <div className="mb-6 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl px-4 py-3 shadow-sm flex items-start gap-3">
+                <AlertOctagon size={20} className="mt-0.5 text-yellow-600" />
+
+                <div className="flex-1">
+                  {/* Texto principal estilo “banner” */}
+                  <p className="font-semibold text-base">
+                    Hay {expiringWarranties.length} garantía(s) que vencen en los próximos 7 días.
+                  </p>
+
+                  {/* Lista con scroll si hay muchas (similar a tu requerimiento de barra) */}
+                  <div className="mt-1 max-h-24 overflow-y-auto pr-1 text-sm">
+                    {expiringWarranties.map((g) => (
+                      <div
+                        key={g.id}
+                        className="flex justify-between items-start border-t border-yellow-100 py-1 last:border-b-0"
+                      >
+                        <div className="pr-2">
+                          <span className="font-medium">{g.nombre_producto}</span>
+                          <span className="ml-1 text-xs text-yellow-700">
+                            — Serial: {g.serial}
+                          </span>
+                        </div>
+
+                        <span className="text-xs text-yellow-700 whitespace-nowrap ml-2">
+                          {g.diasRestantes === 1
+                            ? "Queda 1 día"
+                            : `Quedan ${g.diasRestantes} días`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* MÉTRICAS */}
             <div className="grid grid-cols-3 gap-6 mb-8">
@@ -140,8 +521,8 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Productos registrados</h2>
                   <BarChart3 />
                 </div>
-                <p className="text-3xl font-bold">3</p>
-                <p className="text-sm">2 con stock bajo</p>
+                <p className="text-3xl font-bold">{productsCount}</p>
+                <p className="text-sm">{lowStockCount} con stock bajo</p>
               </div>
 
               <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow hover:scale-105 transition transform">
@@ -149,8 +530,10 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Movimientos de entrada</h2>
                   <TrendingUp />
                 </div>
-                <p className="text-3xl font-bold">23</p>
-                <p className="text-sm">Último registro hace 1h</p>
+                <p className="text-3xl font-bold">{entryCount}</p>
+                <p className="text-sm">
+                  {lastEntryText ? `Último registro ${lastEntryText}` : "Sin registros"}
+                </p>
               </div>
 
               <div className="bg-gradient-to-r from-red-500 to-pink-600 text-white p-6 rounded-xl shadow hover:scale-105 transition transform">
@@ -158,8 +541,10 @@ function AdminDashboard() {
                   <h2 className="font-semibold">Movimientos de salida</h2>
                   <TrendingDown />
                 </div>
-                <p className="text-3xl font-bold">18</p>
-                <p className="text-sm">Último registro hace 30min</p>
+                <p className="text-3xl font-bold">{exitCount}</p>
+                <p className="text-sm">
+                  {lastExitText ? `Último registro ${lastExitText}` : "Sin registros"}
+                </p>
               </div>
             </div>
 
@@ -169,40 +554,36 @@ function AdminDashboard() {
                 <h3 className="font-bold mb-3 text-gray-700 flex items-center gap-2">
                   <ShoppingCart /> Top productos más vendidos
                 </h3>
-                <ul className="space-y-2">
-                  <li className="flex justify-between">
-                    <span>Falco R32 - GSP D</span>
-                    <span className="font-bold">45</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Mac R32 - GSP D</span>
-                    <span className="font-bold">30</span>
-                  </li>
-                  <li className="flex justify-between">
-                    <span>Rocket R32 - GSP D</span>
-                    <span className="font-bold">24</span>
-                  </li>
-                </ul>
+                  <ul className="space-y-2">
+                    {topSoldProducts.length === 0 ? (
+                      <li className="text-gray-500 text-sm">Sin datos de ventas</li>
+                    ) : (
+                      topSoldProducts.map((item) => (
+                        <li key={item.id} className="flex justify-between">
+                          <span>{item.nombre}</span>
+                          <span className="font-bold">{item.totalVentas}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
                 <h3 className="font-bold mb-3 text-gray-700 flex items-center gap-2">
                   <Package /> Top productos con menor stock
                 </h3>
-                <ul className="space-y-2">
-                  <li className="flex justify-between text-red-600">
-                    <span>Falco R32 - GSP D</span>
-                    <span className="font-bold">3</span>
-                  </li>
-                  <li className="flex justify-between text-red-600">
-                    <span>Mac R32 - GSP D</span>
-                    <span className="font-bold">2</span>
-                  </li>
-                  <li className="flex justify-between text-red-600">
-                    <span>Rocket R32 - GSP D</span>
-                    <span className="font-bold">4</span>
-                  </li>
-                </ul>
+                  <ul className="space-y-2">
+                    {lowestStockProducts.length === 0 ? (
+                      <li className="text-gray-500 text-sm">Sin datos de stock</li>
+                    ) : (
+                      lowestStockProducts.map((item) => (
+                        <li key={item.id} className="flex justify-between text-red-600">
+                          <span>{item.nombre}</span>
+                          <span className="font-bold">{item.stock}</span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
               </div>
             </div>
 
@@ -211,8 +592,10 @@ function AdminDashboard() {
                 <h3 className="font-bold mb-4 text-gray-700 flex items-center gap-2">
                   <BarChart3 /> Porcentaje de ventas por marca
                 </h3>
-                <div className="w-56 h-56 mx-auto">
-                  <Pie data={data} />
+
+                {/* contenedor con altura fija para que no sea gigante */}
+                <div className="h-80">
+                  <Pie data={brandSalesChartData} options={pieOptions} />
                 </div>
               </div>
 
@@ -221,22 +604,32 @@ function AdminDashboard() {
                   <ClipboardList /> Sugerencias de compra
                 </h3>
                 <ul className="space-y-2">
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería X
-                  </li>
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería Y
-                  </li>
-                  <li className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition">
-                    Batería Z
-                  </li>
+                  {purchaseSuggestions.length === 0 ? (
+                    <li className="text-gray-500 text-sm">Sin sugerencias por ahora</li>
+                  ) : (
+                    purchaseSuggestions.map((item) => (
+                      <li
+                        key={item.id}
+                        className="bg-blue-100 text-blue-800 px-3 py-1 rounded-lg hover:bg-blue-200 transition"
+                      >
+                        {item.nombre}
+                      </li>
+                    ))
+                  )}
                 </ul>
               </div>
             </div>
           </>
         )}
 
-        {activeView === "inventario" && <InventoryPanel />}
+        {activeView === "inventario" && (
+          <InventoryPanel
+            onProductsChanged={async () => {
+              const { brandMap, stockMap } = await fetchProductsCount();
+              await fetchInventoriesStats(brandMap, stockMap);
+            }}
+          />
+        )}
         {activeView === "usuarios" && <UserManagement />}
         {activeView === "historial" && <HistoryPanel />}
         {activeView === "garantias" && <WarrantiesPanel />}
