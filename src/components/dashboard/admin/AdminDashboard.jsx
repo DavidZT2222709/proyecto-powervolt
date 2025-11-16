@@ -14,6 +14,7 @@ import {
   BarChart3,
   TrendingUp,
   TrendingDown,
+  AlertOctagon,
 } from "lucide-react";
 
 import InventoryPanel from "../../InventoryPanel.jsx";
@@ -22,6 +23,7 @@ import HistoryPanel from "../../HistoryPanel.jsx";
 import BranchesPanel from "./BranchesPanel.jsx"
 import WarrantiesPanel from '../../WarrantiesPanel.jsx';
 import { fetchWithToken } from "../../../api/fetchWithToken.js";
+import { getGarantias } from "../../../api/garantias";
 import { useSucursal } from "../../../context/SucursalContext";
 
 const API_URL = "http://localhost:8000/api";
@@ -75,6 +77,7 @@ function AdminDashboard() {
   const [topSoldProducts, setTopSoldProducts] = useState([]);       // top más vendidos
   const [lowestStockProducts, setLowestStockProducts] = useState([]); // top menor stock
   const [purchaseSuggestions, setPurchaseSuggestions] = useState([]); // sugerencias de compra
+  const [expiringWarranties, setExpiringWarranties] = useState([]);   // garantías próximas a vencer
 
 
   // Datos del gráfico de ventas por marca
@@ -315,8 +318,54 @@ function AdminDashboard() {
     }
   };
 
+  // Garantías que vencen en los próximos 7 días
+  const fetchExpiringWarranties = async () => {
+    // si no hay sucursal seleccionada, limpiar y salir
+    if (!selectedSucursal?.id) {
+      setExpiringWarranties([]);
+      return;
+    }
 
+    try {
+      // usamos el mismo helper que en WarrantiesPanel
+      const data = await getGarantias(`?sucursal=${selectedSucursal.id}`);
 
+      const now = new Date();
+      const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+      const expiring = [];
+
+      data.forEach((g) => {
+        if (!g.fecha_fin_garantia) return;
+
+        const end = new Date(g.fecha_fin_garantia);
+        if (isNaN(end.getTime())) return;
+
+        const diffMs = end - now;
+
+        // solo las garantías ACTIVAS que vencen entre hoy y 7 días
+        if (
+          diffMs > 0 &&
+          diffMs <= weekMs &&
+          (g.nombre_estado === "Activa" || g.estado === 1)
+        ) {
+          const daysLeft = Math.ceil(
+            diffMs / (1000 * 60 * 60 * 24)
+          );
+
+          expiring.push({
+            ...g,
+            diasRestantes: daysLeft,
+          });
+        }
+      });
+
+      setExpiringWarranties(expiring);
+    } catch (error) {
+      console.error("Error obteniendo garantías próximas a vencer:", error);
+      setExpiringWarranties([]);
+    }
+  };
 
   // Actualiza el hash al cambiar de vista (esto evita el error al recargar)
   useEffect(() => {
@@ -328,6 +377,7 @@ function AdminDashboard() {
     const load = async () => {
       const { brandMap, stockMap } = await fetchProductsCount();
       await fetchInventoriesStats(brandMap, stockMap);
+      await fetchExpiringWarranties();
     };
     load();
   }, [selectedSucursal]);
@@ -416,16 +466,50 @@ function AdminDashboard() {
         {activeView === "dashboard" && (
           <>
             {/* HEADER */}
-            <header className="flex justify-between items-center mb-8">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800">
-                  Panel de Administración
-                </h1>
-                <p className="text-gray-500">
-                  Bienvenido al sistema de gestión PowerStock
-                </p>
-              </div>
+            <header className="mb-4">
+              <h1 className="text-3xl font-bold text-gray-800">
+                Panel de Administración
+              </h1>
+              <p className="text-gray-500">
+                Bienvenido al sistema de gestión PowerStock
+              </p>
             </header>
+
+            {expiringWarranties.length > 0 && (
+              <div className="mb-6 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-xl px-4 py-3 shadow-sm flex items-start gap-3">
+                <AlertOctagon size={20} className="mt-0.5 text-yellow-600" />
+
+                <div className="flex-1">
+                  {/* Texto principal estilo “banner” */}
+                  <p className="font-semibold text-base">
+                    Hay {expiringWarranties.length} garantía(s) que vencen en los próximos 7 días.
+                  </p>
+
+                  {/* Lista con scroll si hay muchas (similar a tu requerimiento de barra) */}
+                  <div className="mt-1 max-h-24 overflow-y-auto pr-1 text-sm">
+                    {expiringWarranties.map((g) => (
+                      <div
+                        key={g.id}
+                        className="flex justify-between items-start border-t border-yellow-100 py-1 last:border-b-0"
+                      >
+                        <div className="pr-2">
+                          <span className="font-medium">{g.nombre_producto}</span>
+                          <span className="ml-1 text-xs text-yellow-700">
+                            — Serial: {g.serial}
+                          </span>
+                        </div>
+
+                        <span className="text-xs text-yellow-700 whitespace-nowrap ml-2">
+                          {g.diasRestantes === 1
+                            ? "Queda 1 día"
+                            : `Quedan ${g.diasRestantes} días`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* MÉTRICAS */}
             <div className="grid grid-cols-3 gap-6 mb-8">
