@@ -5,8 +5,9 @@ import {
   createGarantia,
   updateGarantia,
   deleteGarantia
-} from "../api/garantias";
-import { buscarProductos } from "../api/productos";
+} from "../../../api/garantias";
+
+import { buscarProductos } from "../../../api/productos";
 
 const WarrantiesPanel = () => {
   const [warranties, setWarranties] = useState([]);
