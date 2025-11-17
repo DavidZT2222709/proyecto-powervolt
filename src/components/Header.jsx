@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { getUsers, getRoles } from "../api/usuarios";
 import { getSucursales } from "../api/sucursales";
 import { useSucursal } from "../context/SucursalContext";
-import { toast } from "react-hot-toast";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { fetchWithToken } from "../api/fetchWithToken.js";
 
 const API_URL = "http://localhost:8000/api";
@@ -24,6 +25,10 @@ function Header() {
   const [marcas, setMarcas] = useState([]);
   const [editingMarca, setEditingMarca] = useState(null);
   const [marcaNombre, setMarcaNombre] = useState("");
+
+  // Modal de eliminación
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [marcaAEliminar, setMarcaAEliminar] = useState(null);
 
   // Scroll header
   const [visible, setVisible] = useState(true);
@@ -104,7 +109,6 @@ function Header() {
         persistSelected(first);
       }
     } catch (err) {
-      console.warn("❌ No se pudieron cargar las sucursales:", err);
       setSucursales([]);
       setSelectedSucursal(null);
       persistSelected(null);
@@ -161,7 +165,6 @@ function Header() {
         if (u.rol_nombre) localStorage.setItem("userRole", u.rol_nombre);
       }
     } catch (err) {
-      console.error("Error cargando usuario:", err);
       toast.error("Error al cargar datos del usuario");
     }
   };
@@ -205,7 +208,7 @@ function Header() {
         return;
       }
 
-      toast.success("Marca creada");
+      toast.success("Marca creada exitosamente");
       setMarcaNombre("");
       cargarMarcas();
     } catch {
@@ -228,7 +231,7 @@ function Header() {
         return;
       }
 
-      toast.success("Marca actualizada");
+      toast.success("Marca actualizada correctamente");
       setEditingMarca(null);
       setMarcaNombre("");
       cargarMarcas();
@@ -237,17 +240,25 @@ function Header() {
     }
   };
 
-  const eliminarMarca = async (id) => {
-    if (!confirm("¿Eliminar esta marca?")) return;
+  // Mostramos el modal de confirmación
+  const pedirConfirmarEliminar = (marca) => {
+    setMarcaAEliminar(marca);
+    setDeleteModalOpen(true);
+  };
 
+  // Confirmación y borrado real
+  const confirmarEliminarMarca = async () => {
     try {
-      const res = await fetchWithToken(`${API_URL}/marcas/${id}`, {
+      const res = await fetchWithToken(`${API_URL}/marcas/${marcaAEliminar.id}`, {
         method: "DELETE",
       });
-
       if (res.ok) {
-        toast.success("Marca eliminada");
+        toast.success("Marca eliminada con éxito");
+        setDeleteModalOpen(false);
+        setMarcaAEliminar(null);
         cargarMarcas();
+      } else {
+        toast.error("No se pudo eliminar la marca");
       }
     } catch {
       toast.error("Error eliminando marca");
@@ -265,6 +276,8 @@ function Header() {
 
   return (
     <>
+      <ToastContainer position="top-right" autoClose={3000} />
+
       {/* ================= HEADER ================= */}
       <header
         className={`fixed top-0 right-0 w-full flex justify-end items-center space-x-4 p-4 pr-10 
@@ -341,7 +354,6 @@ function Header() {
                 >
                   <Edit3 size={16} /> Mi perfil
                 </li>
-
                 {/* NUEVA OPCIÓN MARCAS */}
                 <li
                   onClick={() => {
@@ -421,7 +433,6 @@ function Header() {
                   className="flex justify-between items-center bg-gray-100 p-2 rounded-md"
                 >
                   <span>{m.nombre}</span>
-
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -432,9 +443,8 @@ function Header() {
                     >
                       <Pencil size={18} />
                     </button>
-
                     <button
-                      onClick={() => eliminarMarca(m.id)}
+                      onClick={() => pedirConfirmarEliminar(m)}
                       className="text-red-600 hover:text-red-800"
                     >
                       <Trash2 size={18} />
@@ -442,11 +452,38 @@ function Header() {
                   </div>
                 </li>
               ))}
-
               {marcas.length === 0 && (
                 <p className="text-center text-gray-500">Sin marcas registradas</p>
               )}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ================= MODAL CONFIRMAR ELIMINAR ================= */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999]">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm">
+            <h3 className="text-xl font-bold mb-4">
+              ¿Desea eliminar la marca "{marcaAEliminar?.nombre}"?
+            </h3>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setMarcaAEliminar(null);
+                }}
+                className="bg-gray-300 px-4 py-2 rounded"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEliminarMarca}
+                className="bg-red-600 text-white px-4 py-2 rounded"
+              >
+                Eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}
