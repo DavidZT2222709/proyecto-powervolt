@@ -387,7 +387,7 @@ function UserDashboard() {
                 : "hover:bg-blue-600"
             }`}
           >
-            <ClipboardList size={20} /> Garantías
+            <ClipboardList size={20} /> Garantias
           </button>
         </nav>
       </aside>
