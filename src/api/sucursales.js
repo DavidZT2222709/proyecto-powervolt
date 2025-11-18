@@ -1,7 +1,7 @@
 // src/api/sucursales.js
 import { fetchWithToken } from "./fetchWithToken";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api";
 
 // Lista de sucursales
 export async function getSucursales() {

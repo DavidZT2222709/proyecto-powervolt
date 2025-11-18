@@ -18,7 +18,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api";
 
 const HistoryPanel = () => {
   const { selectedSucursal } = useSucursal();

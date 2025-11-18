@@ -18,7 +18,7 @@ import { fetchWithToken } from "../../../api/fetchWithToken.js";
 import { getGarantias } from "../../../api/garantias";
 import { useSucursal } from "../../../context/SucursalContext";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api";
 
 // Formatea un ISO date a "hace Xmin / hace Xh / hace X días"
 const formatTimeAgo = (isoString) => {

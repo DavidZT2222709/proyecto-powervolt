@@ -16,7 +16,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api";
 
 //////////////////////////////////////////////////
 // === Helpers para obtener el id del usuario de forma simple ===

@@ -42,7 +42,7 @@ const WarrantiesPanel = () => {
   const [productos, setProductos] = useState([]);
 
   const [search, setSearch] = useState("");
-  const API_URL = "http://localhost:8000/api";
+  const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api";
 
   const [errors, setErrors] = useState({});
 

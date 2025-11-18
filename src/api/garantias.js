@@ -1,7 +1,7 @@
 
 import { fetchWithToken } from "./fetchWithToken";
 
-const API_URL = "http://localhost:8000/api/garantias/";
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com/api/garantias/";
 
 export const getGarantias = async (query = "") => {
   const res = await fetchWithToken(`${API_URL}${query}`);

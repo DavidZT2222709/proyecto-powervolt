@@ -1,6 +1,6 @@
 
 
-const API_URL = "http://localhost:8000"; 
+const API_URL = "https://gestor-inventarios-7jm8.onrender.com"; 
 
 // loguearse 
 export const loginUser = async (email, password) => {
