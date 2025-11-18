@@ -301,7 +301,7 @@ const handlePasswordConfirm = async (e) => {
                 <button
                   type="button"
                   onClick={() => {
-                    window.location.href = "http://127.0.0.1:8000/oauth/login/google-oauth2/";
+                    window.location.href = "https://gestor-inventarios-7jm8.onrender.com/oauth/login/google-oauth2/";
                   }}
                   className="w-full flex items-center justify-center gap-2 py-3 mt-4 bg-white border rounded-2xl shadow-md hover:scale-[1.03] transition-transform duration-200 text-gray-700 font-semibold"
                 >
